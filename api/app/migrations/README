@@ -1,0 +1,58 @@
+# Alembic Database Migrations
+
+This directory contains Alembic database migrations for the Splunk Event Flow Graph application.
+
+## Common Commands
+
+### Generate a new migration
+
+After modifying models, generate a migration file:
+
+```bash
+alembic revision --autogenerate -m "description of changes"
+```
+
+### Apply all pending migrations
+
+```bash
+alembic upgrade head
+```
+
+### Revert the last migration
+
+```bash
+alembic downgrade -1
+```
+
+### Show current revision
+
+```bash
+alembic current
+```
+
+### Show migration history
+
+```bash
+alembic history --verbose
+```
+
+### Downgrade to a specific revision
+
+```bash
+alembic downgrade <revision_id>
+```
+
+## Notes
+
+- Migrations are automatically applied on container startup (see Dockerfile)
+- Always review auto-generated migrations before applying them
+- Test migrations in development before deploying to production
+- The database URL is read from environment variables in this order:
+  - `DB_URL` (recommended, used in documentation)
+  - `DATABASE_URL` (common convention)
+  - `database_url` (lowercase variant)
+- If no environment variable is set, defaults to `sqlite:///./flow.db`
+
+## Documentation
+
+For more information, see the [Alembic documentation](https://alembic.sqlalchemy.org/).
