@@ -1,9 +1,11 @@
 # Splunk Event Flow Graph – System Spec (Frontend + Backend, Dockerized) v2.0
 
 ## 1) Goal & Scope
+
 **Goal:** Ingest one or more Splunk `$SPLUNK_HOME/etc` directory snapshots and generate an accurate, explorable graph that shows how events travel **from inputs on hosts → (optional forwarders/HFs/routers) → indexes**.
 
 **Split architecture:**  
+
 - **Frontend (Web UI):** Upload data, browse the topology graph, filter/search, inspect nodes/edges, export views.  
 - **Backend (API, Python):** Parse/merge Splunk conf, resolve flows, persist graph + findings, serve them over REST, manage uploads/jobs/exports.
 
@@ -28,6 +30,7 @@
 ```
 
 **Containers:**  
+
 - `frontend` (Node build + nginx runtime)  
 - `api` (Python/FastAPI + worker)  
 - `db` (Postgres; SQLite allowed for single-container dev)  
@@ -107,18 +110,21 @@
 Base: `/api/v1`
 
 **Projects**  
+
 - `POST /projects` → create  
 - `GET /projects` / `GET /projects/{id}`  
 - `PATCH /projects/{id}` (rename, labels)  
 - `DELETE /projects/{id}`
 
 **Uploads & Jobs**  
+
 - `POST /projects/{id}/uploads` (multipart file) → `{upload_id}`  
 - `POST /uploads/{upload_id}/jobs` → start parse/resolve  
 - `GET /jobs/{job_id}` → status/log  
 - `GET /uploads/{upload_id}`
 
 **Graphs & Findings**  
+
 - `GET /projects/{id}/graphs` → list versions  
 - `GET /graphs/{graph_id}` → canonical JSON (paged optional)  
 - `GET /graphs/{graph_id}/findings`  
@@ -126,14 +132,17 @@ Base: `/api/v1`
 - `POST /graphs/{graph_id}/validate` (re-run rules)  
 
 **Search/Filter**  
+
 - `GET /graphs/{graph_id}/query?host=hf01&index=os&protocol=splunktcp`  
   Returns filtered subgraph (server-side convenience for large sets).
 
 **Auth**  
+
 - Bearer JWT (opaque in dev). API keys optional.  
 - CORS enabled for configured FE origin.
 
 **OpenAPI**  
+
 - Auto at `/docs` and `/openapi.json`. Keep response schemas typed via Pydantic.
 
 ---
@@ -158,6 +167,7 @@ Base: `/api/v1`
 - **Findings:** table with severity, code, message, quick filters to highlight affected nodes/edges.
 
 **Performance targets:**  
+
 - 2k hosts / 20k edges initial render < 5s on dev laptop; filter interactions < 200ms.
 
 ---
@@ -225,6 +235,7 @@ volumes:
 > For single-box **dev**, you can switch to SQLite by setting `DB_URL=sqlite:////data/flow.db` and dropping `db` service.
 
 ### 7.3 K8s (outline)
+
 - Deployments for `api` and `frontend`, `StatefulSet` for `db`.  
 - PVCs for `/var/lib/postgresql/data` and `/data`.  
 - Ingress with TLS; `api` readiness: `/healthz` (DB + storage check).

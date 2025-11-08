@@ -1,0 +1,108 @@
+version: "3.9"
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: splunk-flow-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-flow}
+      POSTGRES_USER: ${POSTGRES_USER:-flow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flowpass}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - default
+
+  # FastAPI Backend
+  api:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    image: splunk-flow-api:${TAG:-latest}
+    container_name: splunk-flow-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: ${DB_URL:-postgresql+psycopg://flow:flowpass@db:5432/flow}
+      ALLOW_ORIGINS: ${ALLOW_ORIGINS:-http://localhost:5173,http://localhost:8080}
+      STORAGE_ROOT: ${STORAGE_ROOT:-/data}
+      WORKERS: ${WORKERS:-4}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - api-data:/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - default
+
+  # React Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: splunk-flow-frontend:${TAG:-latest}
+    container_name: splunk-flow-frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Redis (Optional - for future async job queue support v2.1+)
+  # Uncomment when implementing background job processing
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: splunk-flow-redis
+  #   volumes:
+  #     - redis-data:/data
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
+  #   networks:
+  #     - default
+
+volumes:
+  # PostgreSQL data persistence
+  db-data:
+  # Application data: /data/artifacts, /data/work, /data/graphs, /data/exports
+  api-data:
+  # Redis data (uncomment when enabling redis service)
+  # redis-data:
+
+networks:
+  default:
+    driver: bridge
+
+# Configuration Notes:
+# - For SQLite dev mode: set DB_URL=sqlite:////data/flow.db and remove db service dependency
+# - Use TAG environment variable to specify image version: TAG=v2.0.0 docker compose up
+# - In production, use Docker secrets or external secret management for sensitive values
+# - Copy .env.example to .env and customize configuration values
