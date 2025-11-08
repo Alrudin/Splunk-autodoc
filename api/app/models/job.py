@@ -50,7 +50,7 @@ class Job(Base):
     )
 
     # Relationships
-    upload: Mapped["Upload"] = relationship("Upload", back_populates="jobs", lazy="selectin")
+    upload: Mapped["Upload"] = relationship("Upload", back_populates="jobs")
     graph: Mapped[Optional["Graph"]] = relationship(
         "Graph", back_populates="job", uselist=False
     )
