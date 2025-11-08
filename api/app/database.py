@@ -1,6 +1,6 @@
 """Database connection management."""
 
-from typing import Generator
+from collections.abc import Generator
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -49,7 +49,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def get_db() -> Generator[Session, None, None]:
     """
     FastAPI dependency for database sessions.
-    
+
     Yields a database session and ensures cleanup.
     """
     db = SessionLocal()
@@ -62,11 +62,10 @@ def get_db() -> Generator[Session, None, None]:
 def init_db() -> None:
     """
     Initialize database by creating all tables.
-    
+
     Useful for testing and SQLite development mode.
     """
     # Import all models to ensure they're registered
-    from app.models import Finding, Graph, Job, Project, Upload
 
     Base.metadata.create_all(bind=engine)
 
@@ -74,7 +73,7 @@ def init_db() -> None:
 def check_db_connection() -> bool:
     """
     Check database connectivity.
-    
+
     Returns True if database is accessible, False otherwise.
     Used by healthcheck endpoint.
     """
