@@ -294,7 +294,7 @@ alembic upgrade head
 
 ## Project Structure
 
-```
+```text
 /
 ├── frontend/              # React/TypeScript SPA
 │   ├── src/              # Source code (components, views, state)
