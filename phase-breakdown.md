@@ -9,13 +9,13 @@ Implement `app/routers/jobs.py` with job creation and status endpoints (POST /up
 Register all routers and include healthcheck router from `app/healthcheck.py`
 
 Relevant Files:
+
 - `/Users/johan/src/Splunk-autodoc/api/app/config.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/database.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/healthcheck.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/project.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/upload.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/job.py`
-
 
 ## Task 2: Create Pydantic Schemas for API Request/Response Validation
 
@@ -27,13 +27,13 @@ Implement schemas for Graph (GraphResponse, HostSchema, EdgeSchema) and Finding 
 Include proper validation, field descriptions, and examples per spec section 11
 
 Relevant Files:
+
 - `/Users/johan/src/Splunk-autodoc/api/app/models/project.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/upload.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/job.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/graph.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/finding.py`
 - `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
-
 
 ## Task 3: Implement Storage Service and File Upload Handling
 
@@ -44,10 +44,10 @@ Add file cleanup utilities and storage URI generation
 Handle multipart file uploads in upload router using this service
 
 Relevant Files:
+
 - `/Users/johan/src/Splunk-autodoc/api/app/config.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/upload.py`
 - `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
-
 
 ## Task 4: Implement Splunk Configuration Parser Service
 
@@ -59,8 +59,8 @@ Parse props.conf and transforms.conf: TRANSFORMS-* evaluation, _MetaData:Index, 
 Return structured data (dicts/dataclasses) representing parsed configurations per spec section 4.3
 
 Relevant Files:
-- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
+- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 ## Task 5: Implement Graph Resolver and Canonical Graph Builder
 
@@ -73,10 +73,10 @@ Generate graph metadata (generator, generated_at, counts, traceability)
 Serialize to canonical JSON format and store in Graph model
 
 Relevant Files:
+
 - `/Users/johan/src/Splunk-autodoc/api/app/models/graph.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/job.py`
 - `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
-
 
 ## Task 6: Implement Validation Service and Finding Generation
 
@@ -87,10 +87,10 @@ Store findings in database linked to graph_id
 Provide re-validation endpoint logic for POST /graphs/{graph_id}/validate
 
 Relevant Files:
+
 - `/Users/johan/src/Splunk-autodoc/api/app/models/finding.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/graph.py`
 - `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
-
 
 ## Task 7: Implement Graph and Finding API Endpoints with Export Functionality
 
@@ -101,10 +101,10 @@ Implement server-side filtering for query endpoint (host, index, protocol filter
 Use Graph and Finding models, return proper schemas
 
 Relevant Files:
+
 - `/Users/johan/src/Splunk-autodoc/api/app/models/graph.py`
 - `/Users/johan/src/Splunk-autodoc/api/app/models/finding.py`
 - `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
-
 
 ## Task 8: Setup Frontend React Application with Routing and State Management
 
@@ -116,10 +116,10 @@ Setup Tailwind CSS and shadcn/ui component library
 Create main App.tsx, index.html, and vite.config.ts
 
 Relevant Files:
+
 - `/Users/johan/src/Splunk-autodoc/frontend/package.json`
 - `/Users/johan/src/Splunk-autodoc/frontend/Dockerfile`
 - `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
-
 
 ## Task 9: Implement Frontend Project Management and Upload Flow UI
 
@@ -131,8 +131,8 @@ Use shadcn/ui components (Dialog, Button, Table, Toast) and lucide-react icons
 Integrate with Zustand store for state management
 
 Relevant Files:
-- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
+- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 ## Task 10: Implement Frontend Graph Visualization with D3/Vis.js
 
@@ -145,9 +145,9 @@ Implement node inspector panel (roles, apps, inputs, outputs) and edge inspector
 Add performance optimizations for 2k hosts / 20k edges per spec section 5.1
 
 Relevant Files:
+
 - `/Users/johan/src/Splunk-autodoc/frontend/package.json`
 - `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
-
 
 ## Task 11: Implement Frontend Findings Table and Export Functionality
 
@@ -159,4 +159,5 @@ Handle file downloads and show progress/success notifications
 Use shadcn/ui Table, Select, and Toast components
 
 Relevant Files:
+
 - `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`

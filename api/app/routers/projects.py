@@ -1,4 +1,7 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -40,8 +43,18 @@ def create_project(project_data: ProjectCreate, db: Session = Depends(get_db)) -
         )
 
 
-@router.get("/", response_model=list[ProjectResponse], response_model_exclude={"uploads", "graphs"})
-def list_projects(db: Session = Depends(get_db)) -> list[ProjectResponse]:  # noqa: B008
+class ProjectListResponse(BaseModel):
+    id: int
+    name: str
+    labels: dict | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    class Config:
+        orm_mode = True
+
+@router.get("/", response_model=list[ProjectListResponse])
+def list_projects(db: Session = Depends(get_db)) -> list[ProjectListResponse]:  # noqa: B008
     """
     List all projects ordered by creation date (newest first).
 

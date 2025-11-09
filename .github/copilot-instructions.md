@@ -31,9 +31,9 @@ The resolver must handle ambiguity (unknown indexes, dangling outputs, placehold
 - Use `TYPE_CHECKING` for circular import handling with forward references
 
 **Router patterns** in `api/app/routers/`:
-- Schemas (Pydantic models) are defined **inline** in router files, not separate `schemas/` modules (see `projects.py`)
+- Schemas (Pydantic models) are now defined in separate `api/app/schemas/` modules, not inline in router files (see `projects.py`)
 - Use `db: Session = Depends(get_db)` dependency injection (with `# noqa: B008` to suppress ruff warning)
-- Return model instances directly; set `response_model=None` to avoid double serialization
+- Return model instances using explicit `response_model=Schema` and function return type hints (e.g., `-> UploadResponse`), with Pydantic schemas configured as `from_attributes=True`
 - Standard error handling: try/except with `db.rollback()` on failure, raise `HTTPException` with appropriate status codes
 - Use `status.HTTP_*` constants from `fastapi`
 

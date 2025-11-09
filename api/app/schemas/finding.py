@@ -55,9 +55,9 @@ class FindingResponse(BaseModel):
     severity: FindingSeverity = Field(
         description="Finding severity level", examples=["warning"]
     )
-    code: str = Field(
+    code: FindingCode = Field(
         description="Finding type code", examples=["UNSECURED_PIPE"]
-    )  # Use str for extensibility
+    )
     message: str = Field(
         description="Human-readable description",
         examples=["Splunktcp connection from uf01 to hf01 does not use TLS"],

@@ -2,9 +2,9 @@
 
 from app.schemas.finding import FindingResponse, FindingSeverity
 from app.schemas.graph import EdgeSchema, GraphMetaSchema, GraphResponse, HostSchema
-from app.schemas.job import JobResponse, JobStatus
+from app.schemas.job import JobCreate, JobResponse, JobStatus
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
-from app.schemas.upload import UploadCreate, UploadResponse
+from app.schemas.upload import UploadCreate, UploadResponse, UploadStatus
 
 __all__ = [
     # Project schemas
@@ -14,7 +14,9 @@ __all__ = [
     # Upload schemas
     "UploadCreate",
     "UploadResponse",
+    "UploadStatus",
     # Job schemas
+    "JobCreate",
     "JobResponse",
     "JobStatus",
     # Graph schemas

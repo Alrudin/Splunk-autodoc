@@ -5,6 +5,10 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# Protocol and path kind type aliases for reusability
+ProtocolType = Literal["splunktcp", "http_event_collector", "syslog", "tcp", "udp"]
+PathKindType = Literal["forwarding", "hec", "syslog", "scripted_input", "modinput"]
+
 if TYPE_CHECKING:
     from app.schemas.finding import FindingResponse
     from app.schemas.job import JobResponse
@@ -50,10 +54,10 @@ class EdgeSchema(BaseModel):
 
     src_host: str = Field(description="Source host ID", examples=["uf01"])
     dst_host: str = Field(description="Destination host ID", examples=["hf01"])
-    protocol: Literal["splunktcp", "http_event_collector", "syslog", "tcp", "udp"] = Field(
+    protocol: ProtocolType = Field(
         description="Transport protocol"
     )
-    path_kind: Literal["forwarding", "hec", "syslog", "scripted_input", "modinput"] = Field(
+    path_kind: PathKindType = Field(
         description="Data path type"
     )
     sources: list[str] = Field(
