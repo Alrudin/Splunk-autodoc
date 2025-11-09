@@ -1,3 +1,5 @@
+from typing import cast
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
@@ -5,6 +7,7 @@ from app.database import get_db  # type: ignore
 from app.models.project import Project  # type: ignore
 from app.models.upload import Upload  # type: ignore
 from app.schemas import UploadResponse  # type: ignore
+from app.schemas.upload import UploadStatus  # type: ignore
 from app.services import storage
 
 router = APIRouter(tags=["uploads"])
@@ -133,8 +136,21 @@ async def create_upload(
         upload.storage_uri = storage_uri
         upload.status = "completed"
         db.commit()
-        db.refresh(upload)
-        return upload
+        
+        # Create a response dict manually to avoid loading nested relationships
+        # This prevents the cyclic reference issue without needing to modify the model
+        response = UploadResponse(
+            id=upload.id,
+            project_id=upload.project_id,
+            filename=upload.filename,
+            size=upload.size,
+            status=cast(UploadStatus, upload.status),
+            storage_uri=upload.storage_uri,
+            created_at=upload.created_at,
+            project=None,
+            jobs=None,
+        )
+        return response
     except Exception as e:
         # Clean up on database update error
         storage.cleanup_upload(upload.id)
@@ -143,8 +159,6 @@ async def create_upload(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update upload record: {str(e)}",
         ) from e
-
-
 @router.get("/uploads/{upload_id}", response_model=UploadResponse)
 def get_upload(upload_id: int, db: Session = Depends(get_db)) -> UploadResponse:  # noqa: B008
     """
