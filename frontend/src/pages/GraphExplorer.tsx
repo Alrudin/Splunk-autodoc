@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useGraph } from '@/hooks/useGraph'
 import { useStore } from '@/store'
 import { VisNetworkCanvas, VisNetworkHandle } from '@/components/VisNetworkCanvas'
@@ -16,16 +16,21 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Filter as FilterIcon, Loader2 } from 'lucide-react'
+import { Filter as FilterIcon, Loader2, Download, FileJson, FileImage, FileText, AlertTriangle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useToast } from '@/hooks/use-toast'
+import { api } from '@/lib/api'
 import type { Edge } from '@/types'
 
 export function GraphExplorerPage() {
   const { graphId } = useParams<{ graphId: string }>()
+  const navigate = useNavigate()
+  const location = useLocation()
   const { graph, findings, isLoading, error } = useGraph(graphId)
   const filters = useStore((state) => state.filters)
-  const setFilters = useStore((state) => state.setFilters)
+  const updateFilter = useStore((state) => state.updateFilter)
   const visNetworkRef = useRef<VisNetworkHandle>(null)
+  const { toast } = useToast()
 
   // Local state
   const [layoutMode, setLayoutMode] = useState<'topology' | 'hierarchical'>('topology')
@@ -33,6 +38,8 @@ export function GraphExplorerPage() {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(true)
   const [edgeMap, setEdgeMap] = useState<Map<string, Edge> | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportFormat, setExportFormat] = useState<'dot' | 'json' | 'png' | 'pdf'>('png')
 
   // Client-side filtering of graph data
   const { filteredHosts, filteredEdges } = useMemo(() => {
@@ -130,6 +137,64 @@ export function GraphExplorerPage() {
     (v) => v !== undefined && v !== ''
   ).length
 
+  // Handle highlighting from Findings page navigation
+  useEffect(() => {
+    if (location.state?.highlightHosts && Array.isArray(location.state.highlightHosts)) {
+      const hosts = location.state.highlightHosts as string[]
+
+      // If we have src_host and dst_host, try to select the edge
+      if (hosts.length >= 2 && hosts[0] && hosts[1]) {
+        // Find edge between these hosts
+        const edge = filteredEdges.find(
+          (e) => e.src_host === hosts[0] && e.dst_host === hosts[1]
+        )
+        if (edge && edgeMap) {
+          // Generate edge ID (same format as VisNetworkCanvas)
+          const edgeComponents = [
+            edge.src_host,
+            edge.dst_host,
+            edge.protocol,
+            edge.indexes.slice().sort().join(','),
+            edge.sourcetypes.slice().sort().join(','),
+            String(edge.tls),
+            String(edge.weight),
+          ]
+          function hashString(str: string): string {
+            let hash = 0,
+              i,
+              chr
+            if (str.length === 0) return hash.toString()
+            for (i = 0; i < str.length; i++) {
+              chr = str.charCodeAt(i)
+              hash = (hash << 5) - hash + chr
+              hash |= 0
+            }
+            return Math.abs(hash).toString()
+          }
+          const edgeId = hashString(edgeComponents.join('|'))
+          setSelectedEdgeId(edgeId)
+          // Focus on the edge in the graph
+          visNetworkRef.current?.focusEdge(edgeId)
+        }
+      } else if (hosts.length === 1 && hosts[0]) {
+        // Single host - select the node
+        setSelectedNodeId(hosts[0])
+        visNetworkRef.current?.focusNode(hosts[0])
+      }
+
+      // Show toast notification
+      if (location.state.code) {
+        toast({
+          title: 'Finding highlighted',
+          description: `Showing ${location.state.code} finding in graph`,
+        })
+      }
+
+      // Clear the location state to prevent re-triggering
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state, filteredEdges, edgeMap, toast])
+
   // Filters are managed by Zustand; no filter change callback needed
 
   // Handle edge map updates from VisNetworkCanvas
@@ -147,27 +212,63 @@ export function GraphExplorerPage() {
   }, [])
 
   const handleFilterByHost = useCallback((hostId: string) => {
-    setFilters({ ...filters, host: hostId })
-  }, [filters, setFilters])
-  const handleFilterByHost = useCallback((hostId: string) => {
-    setFilters((prev) => ({ ...prev, host: hostId }))
-  }, [setFilters])
+    updateFilter('host', hostId)
+  }, [updateFilter])
 
   const handleFilterByProtocol = useCallback((protocol: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      protocol: protocol as 'splunktcp' | 'http_event_collector' | 'syslog' | 'tcp' | 'udp' | ''
-    }))
-  }, [setFilters])
+    updateFilter('protocol', protocol as 'splunktcp' | 'http_event_collector' | 'syslog' | 'tcp' | 'udp')
+  }, [updateFilter])
 
   const handleFilterByIndex = useCallback((index: string) => {
-    setFilters((prev) => ({ ...prev, index }))
-  }, [setFilters])
+    updateFilter('index', index)
+  }, [updateFilter])
+
+  const handleFocusNode = useCallback((nodeId: string) => {
+    visNetworkRef.current?.focusNode(nodeId)
   }, [])
 
   const handleFocusEdge = useCallback((edgeId: string) => {
     visNetworkRef.current?.focusEdge(edgeId)
   }, [])
+
+  // Export handler
+  const handleExport = useCallback(
+    async (format: 'dot' | 'json' | 'png' | 'pdf') => {
+      if (!graphId) return
+
+      setIsExporting(true)
+
+      try {
+        // Get export URL from API client
+        const exportUrl = api.exportGraph(Number(graphId), format)
+
+        // Create temporary anchor element for download
+        const link = document.createElement('a')
+        link.href = exportUrl
+        link.download = `graph-${graphId}.${format}`
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        // Show success toast
+        toast({
+          title: 'Export started',
+          description: `Downloading graph as ${format.toUpperCase()}`,
+        })
+      } catch (error) {
+        // Show error toast
+        toast({
+          title: 'Export failed',
+          description: error instanceof Error ? error.message : 'Failed to export graph',
+          variant: 'destructive',
+        })
+      } finally {
+        setIsExporting(false)
+      }
+    },
+    [graphId, toast]
+  )
 
   // Loading state
   if (isLoading) {
@@ -214,9 +315,22 @@ export function GraphExplorerPage() {
           {activeFilterCount > 0 && (
             <Badge variant="outline">{activeFilterCount} filters</Badge>
           )}
+          {findings.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(`/graphs/${graphId}/findings`)}
+            >
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              {findings.length} Findings
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          <Select value={layoutMode} onValueChange={(value: string) => setLayoutMode(value as 'topology' | 'hierarchical')}>
+          <Select
+            value={layoutMode}
+            onValueChange={(value: string) => setLayoutMode(value as 'topology' | 'hierarchical')}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
@@ -232,6 +346,54 @@ export function GraphExplorerPage() {
           >
             <FilterIcon className="h-4 w-4" />
           </Button>
+          <div className="flex items-center gap-2 ml-2 border-l pl-2">
+            <Select
+              value={exportFormat}
+              onValueChange={(value) => setExportFormat(value as 'dot' | 'json' | 'png' | 'pdf')}
+            >
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="png">
+                  <div className="flex items-center">
+                    <FileImage className="h-4 w-4 mr-2" />
+                    PNG
+                  </div>
+                </SelectItem>
+                <SelectItem value="pdf">
+                  <div className="flex items-center">
+                    <FileImage className="h-4 w-4 mr-2" />
+                    PDF
+                  </div>
+                </SelectItem>
+                <SelectItem value="dot">
+                  <div className="flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
+                    DOT
+                  </div>
+                </SelectItem>
+                <SelectItem value="json">
+                  <div className="flex items-center">
+                    <FileJson className="h-4 w-4 mr-2" />
+                    JSON
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => handleExport(exportFormat)}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -240,7 +402,7 @@ export function GraphExplorerPage() {
         {/* Filter Panel */}
         {showFilters && (
           <div className="w-80 border-r overflow-y-auto flex-shrink-0">
-            <FilterPanel />
+            <FilterPanel onFilterChange={() => {}} />
           </div>
         )}
 
