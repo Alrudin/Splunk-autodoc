@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings  # type: ignore
 from app.database import init_db  # type: ignore
 from app.healthcheck import router as healthcheck_router  # type: ignore
+from app.routers.graphs import router as graphs_router  # type: ignore
 from app.routers.jobs import router as jobs_router  # type: ignore
 from app.routers.projects import router as projects_router  # type: ignore
 from app.routers.uploads import router as uploads_router  # type: ignore
@@ -34,6 +35,7 @@ app.include_router(healthcheck_router)
 app.include_router(projects_router, prefix="/api/v1")
 app.include_router(uploads_router, prefix="/api/v1")
 app.include_router(jobs_router, prefix="/api/v1")
+app.include_router(graphs_router, prefix="/api/v1")
 
 
 @app.on_event("startup")
