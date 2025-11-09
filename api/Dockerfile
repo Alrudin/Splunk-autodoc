@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project configuration and source code
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 COPY app/ ./app/
 
 # Install dependencies and the application
@@ -32,17 +32,15 @@ RUN useradd -m -u 1000 -s /bin/bash appuser
 # Create application and data directories
 RUN mkdir -p /app /data && chown -R appuser:appuser /app /data
 
-# Copy Python packages from builder
+# Copy Python packages and executables from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
-COPY --chown=appuser:appuser ./app /app
-COPY --chown=appuser:appuser pyproject.toml /app/
+COPY --chown=appuser:appuser ./app /app/app
+COPY --chown=appuser:appuser pyproject.toml README.md /app/
 
 WORKDIR /app
-
-# Regenerate entry points for gunicorn and uvicorn using already-copied modules
-RUN pip install --no-cache-dir --no-deps gunicorn uvicorn[standard]
 
 # Install the application to generate proper entry points (using already built packages)
 RUN pip install --no-cache-dir --no-deps .

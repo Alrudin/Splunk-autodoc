@@ -10,9 +10,10 @@ COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # Copy source files
-COPY tsconfig.json tsconfig.node.json ./
+COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
 COPY index.html ./
 COPY vite.config.ts* ./
+COPY postcss.config.js tailwind.config.js ./
 COPY public ./public
 COPY src ./src
 

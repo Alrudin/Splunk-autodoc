@@ -305,12 +305,12 @@ def validate_graph(graph_id: int, db: Session = Depends(get_db)) -> list[Finding
         ) from e
 
 
-@router.get("/graphs/{graph_id}/exports")
+@router.get("/graphs/{graph_id}/exports", response_model=None)
 def export_graph_endpoint(
     graph_id: int,
-    format: str = Query(..., description="Export format: dot, json, png, pdf"),
-    background_tasks: BackgroundTasks = Depends(),  # noqa: B008
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),  # noqa: B008
+    format: str = Query(..., description="Export format: dot, json, png, pdf"),
 ) -> Response | FileResponse:
     """
     Export graph in specified format.
