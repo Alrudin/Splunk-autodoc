@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
@@ -52,9 +51,10 @@ class ProjectListResponse(BaseModel):
     class Config:
         orm_mode = True
 
+
 @router.get("", response_model=list[ProjectListResponse])
 def list_projects(
-    db: Session = Depends(get_db)  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> list[ProjectListResponse]:
     """
     List all projects ordered by creation date (newest first).
@@ -68,6 +68,8 @@ def list_projects(
     projects = db.query(Project).order_by(Project.created_at.desc()).all()
     # Convert ORM models to Pydantic schemas explicitly
     return [ProjectListResponse.model_validate(p) for p in projects]
+
+
 @router.get("/{id}", response_model=ProjectResponse)
 def get_project(id: int, db: Session = Depends(get_db)) -> ProjectResponse:  # noqa: B008
     """
@@ -91,7 +93,9 @@ def get_project(id: int, db: Session = Depends(get_db)) -> ProjectResponse:  # n
 
 @router.patch("/{id}", response_model=ProjectResponse)
 def update_project(
-    id: int, project_data: ProjectUpdate, db: Session = Depends(get_db)  # noqa: B008
+    id: int,
+    project_data: ProjectUpdate,
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> ProjectResponse:
     """
     Update a project's name and/or labels.

@@ -40,7 +40,9 @@ def validate_file_extension(filename: str) -> bool:
     response_model=UploadResponse,
 )
 async def create_upload(
-    project_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)  # noqa: B008
+    project_id: int,
+    file: UploadFile = File(...),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
 ) -> UploadResponse:
     """
     Create a new upload for a project.

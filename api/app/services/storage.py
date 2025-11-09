@@ -175,9 +175,7 @@ async def save_upload_file(
                 if total_bytes > max_bytes:
                     # Delete partial write
                     dest_path.unlink(missing_ok=True)
-                    raise ValueError(
-                        f"File size exceeds maximum allowed size of {max_bytes} bytes"
-                    )
+                    raise ValueError(f"File size exceeds maximum allowed size of {max_bytes} bytes")
 
                 dest_file.write(chunk)
     except ValueError:
@@ -305,6 +303,7 @@ def _extract_zip_safe(archive_path: Path, extract_to: Path) -> list[Path]:
             extracted_files.append(member_path)
 
     return extracted_files
+
 
 def _extract_tar_safe(archive_path: Path, extract_to: Path) -> list[Path]:
     """Safely extract TAR archive with security checks.

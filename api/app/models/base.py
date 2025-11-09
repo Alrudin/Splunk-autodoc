@@ -1,6 +1,5 @@
 """SQLAlchemy declarative base and common utilities."""
 
-
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 

@@ -54,12 +54,8 @@ class EdgeSchema(BaseModel):
 
     src_host: str = Field(description="Source host ID", examples=["uf01"])
     dst_host: str = Field(description="Destination host ID", examples=["hf01"])
-    protocol: ProtocolType = Field(
-        description="Transport protocol"
-    )
-    path_kind: PathKindType = Field(
-        description="Data path type"
-    )
+    protocol: ProtocolType = Field(description="Transport protocol")
+    path_kind: PathKindType = Field(description="Data path type")
     sources: list[str] = Field(
         default_factory=list,
         description="Input sources",
@@ -112,15 +108,11 @@ class GraphMetaSchema(BaseModel):
     Contains generation metadata, counts, and traceability information.
     """
 
-    generator: str = Field(
-        description="Generator identifier", examples=["splunk-autodoc-v2.0"]
-    )
+    generator: str = Field(description="Generator identifier", examples=["splunk-autodoc-v2.0"])
     generated_at: datetime = Field(description="Generation timestamp")
     host_count: int = Field(description="Total number of hosts", examples=[42])
     edge_count: int = Field(description="Total number of edges", examples=[156])
-    source_hosts: list[str] = Field(
-        default_factory=list, description="Source host identifiers"
-    )
+    source_hosts: list[str] = Field(default_factory=list, description="Source host identifiers")
     traceability: dict[str, Any] = Field(
         default_factory=dict, description="File:line traceability pointers"
     )

@@ -52,12 +52,8 @@ class FindingResponse(BaseModel):
 
     id: int = Field(description="Finding ID")
     graph_id: int = Field(description="Parent graph ID")
-    severity: FindingSeverity = Field(
-        description="Finding severity level", examples=["warning"]
-    )
-    code: FindingCode = Field(
-        description="Finding type code", examples=["UNSECURED_PIPE"]
-    )
+    severity: FindingSeverity = Field(description="Finding severity level", examples=["warning"])
+    code: FindingCode = Field(description="Finding type code", examples=["UNSECURED_PIPE"])
     message: str = Field(
         description="Human-readable description",
         examples=["Splunktcp connection from uf01 to hf01 does not use TLS"],

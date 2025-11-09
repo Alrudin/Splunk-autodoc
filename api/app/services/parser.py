@@ -207,9 +207,7 @@ def redact_sensitive_value(key: str, value: str) -> str:
     return value
 
 
-def find_conf_files(
-    work_dir: Path, conf_name: str
-) -> list[tuple[Path, str, str | None]]:
+def find_conf_files(work_dir: Path, conf_name: str) -> list[tuple[Path, str, str | None]]:
     """Find all instances of a configuration file across precedence layers.
 
     Searches for conf_name in:
@@ -600,11 +598,7 @@ def parse_outputs_conf(work_dir: Path) -> list[OutputGroup]:
         if match := tcpout_server_pattern.match(stanza_name):
             server_endpoint = match.group(1)
             # Extract all settings except metadata
-            server_settings = {
-                k: v
-                for k, v in stanza_data.items()
-                if not k.startswith("_source")
-            }
+            server_settings = {k: v for k, v in stanza_data.items() if not k.startswith("_source")}
             server_overrides[server_endpoint] = server_settings
 
     # Merge per-server overrides into OutputGroups
