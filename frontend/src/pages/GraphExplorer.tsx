@@ -499,7 +499,7 @@ export function GraphExplorerPage() {
         {/* Filter Panel */}
         {showFilters && (
           <div className="w-80 border-r overflow-y-auto flex-shrink-0">
-            <FilterPanel />
+            <FilterPanel onFilterChange={handleFilterChange} />
           </div>
         )}
 

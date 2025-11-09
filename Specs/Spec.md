@@ -314,7 +314,7 @@ class Graph(BaseModel):
 
 ## 13) Performance & Limits
 
-- **Parsing:** streaming read; no full-file assumption; cap max upload (default 2GB).  
+- **Parsing:** streaming read; no full-file assumption; cap max upload (default 3GB).  
 - **Graph size targets:** 2k hosts / 20k edges; JSON kept < 50MB; gzip over wire.  
 - **Server:** default 4 workers; job concurrency = CPU count; optional Redis queue for >1 concurrent parse.
 
