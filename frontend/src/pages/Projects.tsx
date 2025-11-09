@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Trash2, FolderOpen, Loader2 } from 'lucide-react'
-import type { CreateProject } from '@/types'
+import type { CreateProject, Project } from '@/types'
 
 export function ProjectsPage() {
   const navigate = useNavigate()
@@ -109,7 +109,7 @@ export function ProjectsPage() {
     }
   }
 
-  const handleViewProject = (project: any) => {
+  const handleViewProject = (project: Project) => {
     setCurrentProject(project)
     navigate('/upload')
   }

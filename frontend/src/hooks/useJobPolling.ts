@@ -76,12 +76,19 @@ export function useJobPolling(initialJobId?: number): UseJobPollingReturn {
     return () => {
       stopPolling()
     }
-  }, [])
+  }, []) // Explicit empty dependency array for cleanup
 
-  // Start polling if initialJobId was provided
+  // Track last polled jobId to avoid unnecessary restarts
+  const lastPolledJobIdRef = useRef<number | undefined>(undefined)
+
+  // Start polling if initialJobId was provided and changed
   useEffect(() => {
-    if (initialJobId) {
+    if (
+      initialJobId &&
+      initialJobId !== lastPolledJobIdRef.current
+    ) {
       startPolling(initialJobId)
+      lastPolledJobIdRef.current = initialJobId
     }
   }, [initialJobId])
 

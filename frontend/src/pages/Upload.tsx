@@ -210,22 +210,26 @@ export function UploadPage() {
         description: 'Graph generated successfully',
       })
       // Fetch the graph for this job
-      if (currentProject) {
-        api.getProjectGraphs(currentProject.id).then((graphs) => {
-          if (graphs && graphs.length > 0) {
-            // Find the graph with matching job_id
-            const graph = graphs.find((g) => g.job_id === job.id)
-            if (graph) {
-              setGraphId(graph.id)
-            } else {
-              // Fallback to the most recent graph
-              setGraphId(graphs[0].id)
+      const fetchGraphForJob = async () => {
+        if (currentProject) {
+          try {
+            const graphs = await api.getProjectGraphs(currentProject.id)
+            if (graphs && graphs.length > 0) {
+              // Find the graph with matching job_id
+              const graph = graphs.find((g) => g.job_id === job.id)
+              if (graph) {
+                setGraphId(graph.id)
+              } else {
+                // Fallback to the most recent graph
+                setGraphId(graphs[0].id)
+              }
             }
+          } catch (error) {
+            console.error('Failed to fetch graphs:', error)
           }
-        }).catch((error) => {
-          console.error('Failed to fetch graphs:', error)
-        })
+        }
       }
+      fetchGraphForJob()
     } else if (job?.status === 'failed') {
       toast({
         title: 'Job failed',
@@ -233,7 +237,7 @@ export function UploadPage() {
         variant: 'destructive',
       })
     }
-  }, [job?.status, job?.id, currentProject, toast])
+  }, [job?.status, job?.id, currentProject])
 
   if (!currentProject) {
     return (

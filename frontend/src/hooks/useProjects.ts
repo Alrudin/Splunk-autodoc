@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useStore } from '@/store'
 import type { Project, CreateProject, UpdateProject } from '@/types'
@@ -19,7 +19,7 @@ export function useProjects(): UseProjectsReturn {
   const [error, setError] = useState<string | null>(null)
   const { setProjects } = useStore()
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -35,11 +35,11 @@ export function useProjects(): UseProjectsReturn {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [setProjects])
 
   useEffect(() => {
     fetchProjects()
-  }, [])
+  }, [fetchProjects])
 
   const createProject = async (data: CreateProject): Promise<Project | null> => {
     try {
