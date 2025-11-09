@@ -87,7 +87,16 @@ export const api = {
     return request<Graph>(`/graphs/${id}/query${queryString ? `?${queryString}` : ''}`)
   },
   validateGraph: (id: number) => request<Finding[]>(`/graphs/${id}/validate`, { method: 'POST' }),
-  exportGraph: (id: number, format: 'dot' | 'json' | 'png' | 'pdf') => {
-    return `${config.API_BASE_URL}/graphs/${id}/exports?format=${format}`
+  exportGraph: (id: number, format: 'dot' | 'json' | 'png' | 'pdf', filters?: GraphQueryParams) => {
+    const query = new URLSearchParams({ format })
+    // Add filter parameters if provided (for filtered exports)
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          query.append(key, String(value))
+        }
+      })
+    }
+    return `${config.API_BASE_URL}/graphs/${id}/exports?${query.toString()}`
   },
 }

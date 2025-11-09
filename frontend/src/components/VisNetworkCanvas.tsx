@@ -1,5 +1,6 @@
 import { useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react'
 import { Network, Options, Node } from 'vis-network/standalone'
+import { edgeIdFromEdge } from '@/lib/edgeId'
 import type { Host, Edge } from '@/types'
 
 export interface VisNetworkHandle {
@@ -105,29 +106,9 @@ export const VisNetworkCanvas = forwardRef<VisNetworkHandle, VisNetworkCanvasPro
   const { visEdges, edgeMap } = useMemo(() => {
     const map = new Map<string, Edge>()
     const edgeCount = edges.length
-    const visEdgeList = edges.map((edge, idx) => {
-      // Generate robust unique edge ID using a hash of distinguishing properties
-      const edgeComponents = [
-        edge.src_host,
-        edge.dst_host,
-        edge.protocol,
-        edge.indexes.slice().sort().join(','),
-        edge.sourcetypes.slice().sort().join(','),
-        String(edge.tls),
-        String(edge.weight),
-      ]
-      // Simple hash function for stable edge IDs
-      function hashString(str: string): string {
-        let hash = 0, i, chr
-        if (str.length === 0) return hash.toString()
-        for (i = 0; i < str.length; i++) {
-          chr = str.charCodeAt(i)
-          hash = ((hash << 5) - hash) + chr
-          hash |= 0 // Convert to 32bit integer
-        }
-        return Math.abs(hash).toString()
-      }
-      const edgeId = hashString(edgeComponents.join('|'))
+    const visEdgeList = edges.map((edge) => {
+      // Generate robust unique edge ID using shared utility
+      const edgeId = edgeIdFromEdge(edge)
 
       // Store edge in map for lookup
       map.set(edgeId, edge)
@@ -411,20 +392,39 @@ export const VisNetworkCanvas = forwardRef<VisNetworkHandle, VisNetworkCanvasPro
   // Expose focus methods to parent via ref
   useImperativeHandle(ref, () => ({
     focusNode: (nodeId: string) => {
-      if (networkRef.current) {
-        networkRef.current.focus(nodeId, {
-          scale: 1.5,
+      if (!networkRef.current) return
+
+      // Select the node
+      networkRef.current.selectNodes([nodeId])
+
+      // Focus on the node with animation
+      networkRef.current.focus(nodeId, {
+        scale: 1.5,
+        animation: {
+          duration: 500,
+          easingFunction: 'easeInOutQuad',
+        },
+      })
+    },
+    focusEdge: (edgeId: string) => {
+      if (!networkRef.current) return
+
+      // Select the edge
+      networkRef.current.selectEdges([edgeId])
+
+      // Get edge data to find connected nodes
+      const edge = edgeMap.get(edgeId)
+      if (edge) {
+        // Focus on the edge by centering on its connected nodes
+        networkRef.current.fit({
+          nodes: [edge.src_host, edge.dst_host],
           animation: {
             duration: 500,
             easingFunction: 'easeInOutQuad',
           },
         })
-      }
-    },
-    focusEdge: (edgeId: string) => {
-      if (networkRef.current) {
-        // For edges, select the edge and fit view
-        networkRef.current.selectEdges([edgeId])
+      } else {
+        // Fallback if edge not found - just fit to show everything
         networkRef.current.fit({
           animation: {
             duration: 500,
@@ -433,7 +433,7 @@ export const VisNetworkCanvas = forwardRef<VisNetworkHandle, VisNetworkCanvasPro
         })
       }
     },
-  }))
+  }), [edgeMap])
 
   return (
     <div className="relative w-full h-full">
