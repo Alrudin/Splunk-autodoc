@@ -469,11 +469,31 @@ def parse_outputs_conf(work_dir: Path) -> list[OutputGroup]:
             discovery_name = match.group(1)
             # Extract key indexer discovery settings
             indexer_discovery_map[discovery_name] = {
-                "master_uri": stanza_data.get("master_uri") if stanza_data.get("master_uri") is not None else stanza_data.get("masterUri"),
-                "pass4SymmKey": stanza_data.get("pass4SymmKey") if stanza_data.get("pass4SymmKey") is not None else stanza_data.get("pass4symmkey"),
-                "sslCertPath": stanza_data.get("sslCertPath") if stanza_data.get("sslCertPath") is not None else stanza_data.get("sslcertpath"),
-                "sslPassword": stanza_data.get("sslPassword") if stanza_data.get("sslPassword") is not None else stanza_data.get("sslpassword"),
-                "sslVerifyServerCert": stanza_data.get("sslVerifyServerCert") if stanza_data.get("sslVerifyServerCert") is not None else stanza_data.get("sslverifyservercert"),
+                "master_uri": (
+                    stanza_data.get("master_uri")
+                    if stanza_data.get("master_uri") is not None
+                    else stanza_data.get("masterUri")
+                ),
+                "pass4SymmKey": (
+                    stanza_data.get("pass4SymmKey")
+                    if stanza_data.get("pass4SymmKey") is not None
+                    else stanza_data.get("pass4symmkey")
+                ),
+                "sslCertPath": (
+                    stanza_data.get("sslCertPath")
+                    if stanza_data.get("sslCertPath") is not None
+                    else stanza_data.get("sslcertpath")
+                ),
+                "sslPassword": (
+                    stanza_data.get("sslPassword")
+                    if stanza_data.get("sslPassword") is not None
+                    else stanza_data.get("sslpassword")
+                ),
+                "sslVerifyServerCert": (
+                    stanza_data.get("sslVerifyServerCert")
+                    if stanza_data.get("sslVerifyServerCert") is not None
+                    else stanza_data.get("sslverifyservercert")
+                ),
                 "source_file": stanza_data.get("_source_file", ""),
             }
 
