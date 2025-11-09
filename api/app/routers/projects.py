@@ -1,30 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db  # type: ignore
 from app.models.project import Project  # type: ignore
+from app.schemas import ProjectCreate, ProjectResponse, ProjectUpdate  # type: ignore
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
-class ProjectCreate(BaseModel):
-    """Schema for creating a new project."""
-
-    name: str
-    labels: list[str] = []
-
-
-class ProjectUpdate(BaseModel):
-    """Schema for updating a project."""
-
-    name: str | None = None
-    labels: list[str] | None = None
-
-
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=None)
-def create_project(project_data: ProjectCreate, db: Session = Depends(get_db)) -> Project:  # noqa: B008
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
+def create_project(project_data: ProjectCreate, db: Session = Depends(get_db)) -> ProjectResponse:  # noqa: B008
     """
     Create a new project.
 
@@ -54,8 +40,8 @@ def create_project(project_data: ProjectCreate, db: Session = Depends(get_db)) -
         )
 
 
-@router.get("/", response_model=None)
-def list_projects(db: Session = Depends(get_db)) -> list[Project]:  # noqa: B008
+@router.get("/", response_model=list[ProjectResponse], response_model_exclude={"uploads", "graphs"})
+def list_projects(db: Session = Depends(get_db)) -> list[ProjectResponse]:  # noqa: B008
     """
     List all projects ordered by creation date (newest first).
 
@@ -69,8 +55,8 @@ def list_projects(db: Session = Depends(get_db)) -> list[Project]:  # noqa: B008
     return projects
 
 
-@router.get("/{id}", response_model=None)
-def get_project(id: int, db: Session = Depends(get_db)) -> Project:  # noqa: B008
+@router.get("/{id}", response_model=ProjectResponse)
+def get_project(id: int, db: Session = Depends(get_db)) -> ProjectResponse:  # noqa: B008
     """
     Get a single project by ID.
 
@@ -90,8 +76,10 @@ def get_project(id: int, db: Session = Depends(get_db)) -> Project:  # noqa: B00
     return project
 
 
-@router.patch("/{id}", response_model=None)
-def update_project(id: int, project_data: ProjectUpdate, db: Session = Depends(get_db)) -> Project:  # noqa: B008
+@router.patch("/{id}", response_model=ProjectResponse)
+def update_project(
+    id: int, project_data: ProjectUpdate, db: Session = Depends(get_db)  # noqa: B008
+) -> ProjectResponse:
     """
     Update a project's name and/or labels.
 

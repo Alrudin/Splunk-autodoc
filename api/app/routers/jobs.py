@@ -4,14 +4,19 @@ from sqlalchemy.orm import Session
 from app.database import get_db  # type: ignore
 from app.models.job import Job  # type: ignore
 from app.models.upload import Upload  # type: ignore
+from app.schemas import JobResponse  # type: ignore
 
 router = APIRouter(tags=["jobs"])
 
 
-@router.post("/uploads/{upload_id}/jobs", status_code=status.HTTP_201_CREATED, response_model=None)
-def create_job(upload_id: int, db: Session = Depends(get_db)) -> Job:  # noqa: B008
+@router.post(
+    "/uploads/{upload_id}/jobs",
+    status_code=status.HTTP_201_CREATED,
+    response_model=JobResponse,
+)
+def create_job(upload_id: int, db: Session = Depends(get_db)) -> JobResponse:  # noqa: B008
     """
-    Create a new job for an upload.
+    Create a new job to process an upload.
 
     Args:
         upload_id: ID of the upload to process
@@ -68,8 +73,8 @@ def create_job(upload_id: int, db: Session = Depends(get_db)) -> Job:  # noqa: B
         )
 
 
-@router.get("/jobs/{job_id}", response_model=None)
-def get_job(job_id: int, db: Session = Depends(get_db)) -> Job:  # noqa: B008
+@router.get("/jobs/{job_id}", response_model=JobResponse)
+def get_job(job_id: int, db: Session = Depends(get_db)) -> JobResponse:  # noqa: B008
     """
     Get job status and details by ID.
 
