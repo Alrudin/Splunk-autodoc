@@ -1,4 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom'
+import { Toaster } from '@/components/ui/toaster'
 
 export function Layout() {
   return (
@@ -27,6 +28,7 @@ export function Layout() {
       <main className="flex-1 container mx-auto px-4 py-6">
         <Outlet />
       </main>
+      <Toaster />
     </div>
   )
 }
