@@ -147,7 +147,7 @@ def query_graph(
     index: str | None = Query(None, description="Filter edges by index"),
     protocol: str | None = Query(None, description="Filter edges by protocol"),
     db: Session = Depends(get_db),  # noqa: B008
-) -> Graph:
+) -> GraphResponse:
     """
     Query graph with server-side filtering.
 
@@ -194,7 +194,7 @@ def query_graph(
     # Apply server-side filtering
     hosts = graph_json.get("hosts", [])
     edges = graph_json.get("edges", [])
-    meta = graph_json.get("meta", {})
+    meta = graph_json.get("meta", {}).copy()
 
     # Filter edges based on all provided filters
     filtered_edges = []
@@ -227,28 +227,29 @@ def query_graph(
 
     filtered_hosts = [h for h in hosts if h.get("id") in referenced_host_ids]
 
-    # Build filtered graph JSON
+    # Build filtered graph JSON with updated meta counts
+    filtered_meta = meta.copy()
+    filtered_meta["host_count"] = len(filtered_hosts)
+    filtered_meta["edge_count"] = len(filtered_edges)
+
     filtered_graph_json = {
         "hosts": filtered_hosts,
         "edges": filtered_edges,
-        "meta": meta,
+        "meta": filtered_meta,
     }
 
-    # Create a new Graph-like response with filtered json_blob
-    # We need to return a Graph instance for response_model compatibility
-    # Create a copy and modify json_blob
-    filtered_graph = Graph(
-        id=graph.id,
-        job_id=graph.job_id,
-        project_id=graph.project_id,
-        name=graph.name,
-        json_blob=filtered_graph_json,
-        host_count=len(filtered_hosts),
-        edge_count=len(filtered_edges),
-        created_at=graph.created_at,
-    )
+    # Build response payload matching GraphResponse using original graph fields
+    response_payload = {
+        "id": graph.id,
+        "project_id": graph.project_id,
+        "job_id": graph.job_id,
+        "version": graph.version,
+        "json_blob": filtered_graph_json,
+        "meta": graph.meta,
+        "created_at": graph.created_at,
+    }
 
-    return filtered_graph
+    return GraphResponse.model_validate(response_payload)
 
 
 @router.post("/graphs/{graph_id}/validate", response_model=list[FindingResponse])

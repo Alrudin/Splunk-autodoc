@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import graphviz  # type: ignore
+from graphviz.backend import CalledProcessError, ExecutableNotFound
 
 from app.services.storage import get_exports_directory
 
@@ -181,7 +182,7 @@ def build_dot_from_canonical_graph(graph_json: dict[str, Any]) -> str:
         dst = edge.get("dst_host", "unknown")
         protocol = edge.get("protocol", "unknown")
         indexes = edge.get("indexes", [])
-        tls_enabled = edge.get("tls_enabled", False)
+        tls_enabled = edge.get("tls", False)
         weight = edge.get("weight", 1)
 
         # Determine edge color based on protocol
@@ -312,7 +313,7 @@ def export_as_image(graph_json: dict[str, Any], format: str, graph_id: int) -> P
 
         return output_path
 
-    except graphviz.ExecutableNotFound as e:
+    except ExecutableNotFound as e:
         logger.error(f"Graphviz not found: {e}")
         raise RuntimeError(
             "Graphviz is not installed. Please install system Graphviz: "
@@ -321,7 +322,7 @@ def export_as_image(graph_json: dict[str, Any], format: str, graph_id: int) -> P
             "brew install graphviz (macOS)"
         ) from e
 
-    except graphviz.CalledProcessError as e:
+    except CalledProcessError as e:
         logger.error(f"Graphviz rendering failed: {e}")
         logger.debug(f"DOT content:\n{dot_string}")
         raise RuntimeError(f"Graphviz rendering failed: {e}") from e
@@ -363,7 +364,7 @@ def export_graph(
     # Route to appropriate handler
     if format_lower == "dot":
         content = export_as_dot(graph_json)
-        return (content, "text/plain")
+        return (content, "text/vnd.graphviz")
 
     elif format_lower == "json":
         content = export_as_json(graph_json)
