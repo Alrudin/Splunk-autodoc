@@ -147,8 +147,6 @@ async def create_upload(
             status=cast(UploadStatus, upload.status),
             storage_uri=upload.storage_uri,
             created_at=upload.created_at,
-            project=None,
-            jobs=None,
         )
         return response
     except Exception as e:

@@ -37,7 +37,9 @@ class UploadResponse(BaseModel):
         description="Storage path", examples=["/data/artifacts/123/upload.zip"]
     )
     created_at: datetime = Field(description="Upload timestamp")
-    project: "ProjectResponse | None" = Field(None, description="Parent project")
-    jobs: list["JobResponse"] | None = Field(None, description="Related jobs")
+    # Remove nested relationships to prevent cyclic serialization
+    # Use project_id to reference parent, and separate endpoint for jobs
+    # project: "ProjectResponse | None" = Field(None, description="Parent project")
+    # jobs: list["JobResponse"] | None = Field(None, description="Related jobs")
 
     model_config = ConfigDict(from_attributes=True)
