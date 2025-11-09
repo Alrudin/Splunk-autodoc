@@ -66,18 +66,22 @@ Relevant Files:
 
 ## Task 5: Implement Graph Resolver and Canonical Graph Builder
 
-Create `app/services/resolver.py` to build canonical graph from parsed Splunk configs
-Implement host-to-host edge resolution using inputs and outputs
-Build Host objects with roles, labels, apps per spec section 4.2
-Build Edge objects with src_host, dst_host, protocol, sources, sourcetypes, indexes, filters, TLS, weight, confidence
-Apply heuristics for unknown targets and ambiguous routing
-Generate graph metadata (generator, generated_at, counts, traceability)
-Serialize to canonical JSON format and store in Graph model
+- Create \`app/services/resolver.py\` to build canonical graph from parsed Splunk configs
+- Implement host-to-host edge resolution using inputs and outputs
+- Build Host objects with roles, labels, apps per spec section 4.2
+- Build Edge objects with src_host, dst_host, protocol, sources, sourcetypes, indexes, filters, TLS, weight, confidence
+- Apply heuristics for unknown targets and ambiguous routing
+- Generate graph metadata (generator, generated_at, counts, traceability)
+- Serialize to canonical JSON format and store in Graph model
+
 
 Relevant Files:
-- `/Users/johan/src/Splunk-autodoc/api/app/models/graph.py`
-- `/Users/johan/src/Splunk-autodoc/api/app/models/job.py`
-- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
+
+\- `/Users/johan/src/Splunk-autodoc/api/app/models/graph.py`
+
+\- `/Users/johan/src/Splunk-autodoc/api/app/models/job.py`
+
+\- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 
 ## Task 6: Implement Validation Service and Finding Generation
