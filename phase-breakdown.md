@@ -51,15 +51,17 @@ Relevant Files:
 
 ## Task 4: Implement Splunk Configuration Parser Service
 
-Create `app/services/parser.py` with functions to parse Splunk conf files (inputs.conf, outputs.conf, props.conf, transforms.conf)
-Implement precedence resolution logic (system/default < system/local < app/default < app/local)
-Parse all input types: monitor://, WinEventLog:, tcp://, udp://, splunktcp://, http/HEC, script://, modular inputs
-Parse outputs.conf: tcpout groups, defaultGroup, indexer discovery, SSL/TLS settings
-Parse props.conf and transforms.conf: TRANSFORMS-* evaluation, _MetaData:Index, sourcetype rewrites, nullQueue
-Return structured data (dicts/dataclasses) representing parsed configurations per spec section 4.3
+- Create \`app/services/parser.py\` with functions to parse Splunk conf files (inputs.conf, outputs.conf, props.conf, transforms.conf)
+- Implement precedence resolution logic (system/default &lt; system/local &lt; app/default &lt; app/local)
+- Parse all input types: monitor://, WinEventLog:, tcp://, udp://, splunktcp://, http/HEC, script://, modular inputs
+- Parse outputs.conf: tcpout groups, defaultGroup, indexer discovery, SSL/TLS settings
+- Parse props.conf and transforms.conf: TRANSFORMS-\* evaluation, \_MetaData:Index, sourcetype rewrites, nullQueue
+- Return structured data (dicts/dataclasses) representing parsed configurations per spec section 4.3
+
 
 Relevant Files:
-- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
+
+\- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 
 ## Task 5: Implement Graph Resolver and Canonical Graph Builder
