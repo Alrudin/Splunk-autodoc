@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import type { Upload, Job } from '@/types'
 
-const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 * 1024 // 2GB
+const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024 * 1024 // 2GB
 
 export function UploadPage() {
   const navigate = useNavigate()
