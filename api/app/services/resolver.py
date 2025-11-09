@@ -417,7 +417,7 @@ def apply_transforms_to_index(
 
         for prop in props:
             # Skip already processed props to avoid loops
-            prop_key = (prop.stanza_type, prop.stanza_value)
+            prop_key = (prop.stanza_type, prop.stanza_value, current_sourcetype)
             if prop_key in processed_props:
                 continue
 
@@ -448,7 +448,7 @@ def apply_transforms_to_index(
         # Apply transforms from matching props
         for _match_type, prop in matching_props:
             # Mark this prop as processed
-            prop_key = (prop.stanza_type, prop.stanza_value)
+            prop_key = (prop.stanza_type, prop.stanza_value, current_sourcetype)
             processed_props.add(prop_key)
 
             # Evaluate each transform reference in order
@@ -489,10 +489,10 @@ def apply_transforms_to_index(
                     if transform.format:
                         # Update current sourcetype and flag for re-evaluation
                         new_sourcetype = transform.format
+                        filters_applied.append(f"SOURCETYPE_REWRITE:{transform_ref}")
                         if new_sourcetype != current_sourcetype:
                             current_sourcetype = new_sourcetype
                             sourcetype_changed = True
-                            filters_applied.append(f"SOURCETYPE_REWRITE:{transform_ref}")
                     else:
                         logger.warning(
                             f"Transform '{transform_ref}' is sourcetype rewrite but has no "
@@ -690,14 +690,15 @@ def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
             if edge.confidence == "derived":
                 merged.confidence = "derived"
 
-        # Determine merged TLS: False if any False, True if all True, None if mixed or all None
+        # Determine merged TLS: False if any False, True if all True, None if mixed True/False or
+        # all None
         if tls_values:
-            if any(not tls for tls in tls_values):
+            if any(tls is False for tls in tls_values):
                 merged.tls = False
-            elif all(tls for tls in tls_values):
+            elif all(tls is True for tls in tls_values):
                 merged.tls = True
             else:
-                merged.tls = None  # Mixed values or all None
+                merged.tls = None  # Mixed True/False or all None
 
         # Deduplicate filters while preserving order
         seen_filters = set()
