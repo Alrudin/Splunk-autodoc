@@ -13,6 +13,9 @@ router = APIRouter(tags=["uploads"])
 ALLOWED_EXTENSIONS = {".zip", ".tar.gz", ".tar", ".tgz"}
 MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB per spec section 13
 
+# Sentinel value for storage_uri before file is saved
+STORAGE_URI_PENDING = "__PENDING__"
+
 
 def validate_file_extension(filename: str) -> bool:
     """
@@ -74,7 +77,7 @@ async def create_upload(
         filename=file.filename,
         size=0,  # Will be updated after file save
         status="pending",
-        storage_uri="pending",  # Will be updated after file save
+        storage_uri=STORAGE_URI_PENDING,  # Will be updated after file save
     )
     try:
         db.add(upload)
@@ -94,6 +97,7 @@ async def create_upload(
         )
     except ValueError as e:
         # Size limit exceeded during streaming
+        storage.cleanup_upload(upload.id)
         db.delete(upload)
         db.commit()
         raise HTTPException(

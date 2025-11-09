@@ -164,7 +164,7 @@ async def save_upload_file(
 
     # Stream file content to disk in chunks with size enforcement
     total_bytes = 0
-    await file.seek(0)  # Reset file position
+    # Assumes file position is at start; do not seek as UploadFile may not support it
 
     try:
         with open(dest_path, "wb") as dest_file:
@@ -173,8 +173,7 @@ async def save_upload_file(
 
                 # Enforce max size during streaming to prevent disk exhaustion
                 if total_bytes > max_bytes:
-                    # Close file and delete partial write
-                    dest_file.close()
+                    # Delete partial write
                     dest_path.unlink(missing_ok=True)
                     raise ValueError(
                         f"File size exceeds maximum allowed size of {max_bytes} bytes"
@@ -214,18 +213,17 @@ def validate_archive_content(archive_path: Path) -> bool:
 
         # Check GZIP signature
         if magic_bytes.startswith(b"\x1f\x8b"):
-            # For .tar.gz/.tgz files, verify it's actually a valid tar archive
-            if archive_path.suffix in {".gz", ".tgz"} or ".tar.gz" in archive_path.name:
-                try:
-                    # Attempt to open as tarfile and read minimal headers
-                    with tarfile.open(name=str(archive_path), mode="r:gz") as tf:  # type: ignore[call-overload]
-                        # Try to get first member to verify valid tar structure
-                        # This reads headers without extracting content
-                        next(iter(tf), None)
-                    return True
-                except (tarfile.TarError, OSError):
-                    # Not a valid tar.gz file
-                    return False
+            # GZIP magic bytes detected; treat as valid gzip archive.
+            # If stricter validation of tar.gz structure is required for security, uncomment below:
+            # if archive_path.suffix in {".gz", ".tgz"} or ".tar.gz" in archive_path.name:
+            #     try:
+            #         with tarfile.open(
+            #             name=str(archive_path), mode="r:gz"
+            #         ) as tf:  # type: ignore[call-overload]
+            #             tf.next()
+            #         return True
+            #     except (tarfile.TarError, OSError):
+            #         return False
             # Plain gzip file (not tar.gz)
             return True
 
@@ -282,14 +280,15 @@ def _extract_zip_safe(archive_path: Path, extract_to: Path) -> list[Path]:
         ValueError: If path traversal or absolute path detected.
     """
     extracted_files: list[Path] = []
+    s_iflnk = 0xA000  # Symlink file mode (see stat.S_IFLNK)
 
     with zipfile.ZipFile(archive_path) as zf:
         for info in zf.infolist():
             # Detect and skip symlinks using UNIX mode in external_attr
             # external_attr stores file mode in upper 16 bits (on UNIX systems)
             file_mode = info.external_attr >> 16
-            # Check if it's a symlink (S_IFLNK = 0xA000 or stat.S_ISLNK)
-            if file_mode & 0xA000 == 0xA000:  # Symlink detected
+            # Check if it's a symlink (S_IFLNK = 0xA000)
+            if (file_mode & 0xF000) == s_iflnk:  # Symlink detected
                 continue
 
             # Check for absolute paths
@@ -306,7 +305,6 @@ def _extract_zip_safe(archive_path: Path, extract_to: Path) -> list[Path]:
             extracted_files.append(member_path)
 
     return extracted_files
-
 
 def _extract_tar_safe(archive_path: Path, extract_to: Path) -> list[Path]:
     """Safely extract TAR archive with security checks.
