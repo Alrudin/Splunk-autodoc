@@ -10,12 +10,12 @@ Register all routers and include healthcheck router from `app/healthcheck.py`
 
 Relevant Files:
 
-- `api/app/config.py`
-- `api/app/database.py`
-- `api/app/healthcheck.py`
-- `api/app/models/project.py`
-- `api/app/models/upload.py`
-- `api/app/models/job.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/config.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/database.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/healthcheck.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/project.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/upload.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/job.py`
 
 ## Task 2: Create Pydantic Schemas for API Request/Response Validation
 
@@ -28,12 +28,12 @@ Include proper validation, field descriptions, and examples per spec section 11
 
 Relevant Files:
 
-- `api/app/models/project.py`
-- `api/app/models/upload.py`
-- `api/app/models/job.py`
-- `api/app/models/graph.py`
-- `api/app/models/finding.py`
-- `Specs/Spec.md`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/project.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/upload.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/job.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/graph.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/finding.py`
+- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 ## Task 3: Implement Storage Service and File Upload Handling
 
@@ -45,9 +45,9 @@ Handle multipart file uploads in upload router using this service
 
 Relevant Files:
 
-- `api/app/config.py`
-- `api/app/models/upload.py`
-- `Specs/Spec.md`
+- `/Users/johan/src/Splunk-autodoc/api/app/config.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/upload.py`
+- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 ## Task 4: Implement Splunk Configuration Parser Service
 
@@ -74,9 +74,9 @@ Serialize to canonical JSON format and store in Graph model
 
 Relevant Files:
 
-- `api/app/models/graph.py`
-- `api/app/models/job.py`
-- `Specs/Spec.md`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/graph.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/job.py`
+- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 ## Task 6: Implement Validation Service and Finding Generation
 
@@ -88,9 +88,9 @@ Provide re-validation endpoint logic for POST /graphs/{graph_id}/validate
 
 Relevant Files:
 
-- `api/app/models/finding.py`
-- `api/app/models/graph.py`
-- `Specs/Spec.md`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/finding.py`
+- `/Users/johan/src/Splunk-autodoc/api/app/models/graph.py`
+- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 ## Task 7: Implement Graph and Finding API Endpoints with Export Functionality
 
@@ -117,9 +117,9 @@ Create main App.tsx, index.html, and vite.config.ts
 
 Relevant Files:
 
-- `frontend/package.json`
-- `frontend/Dockerfile`
-- `Specs/Spec.md`
+- `/Users/johan/src/Splunk-autodoc/frontend/package.json`
+- `/Users/johan/src/Splunk-autodoc/frontend/Dockerfile`
+- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 ## Task 9: Implement Frontend Project Management and Upload Flow UI
 
@@ -146,8 +146,8 @@ Add performance optimizations for 2k hosts / 20k edges per spec section 5.1
 
 Relevant Files:
 
-- `frontend/package.json`
-- `Specs/Spec.md`
+- `/Users/johan/src/Splunk-autodoc/frontend/package.json`
+- `/Users/johan/src/Splunk-autodoc/Specs/Spec.md`
 
 ## Task 11: Implement Frontend Findings Table and Export Functionality
 

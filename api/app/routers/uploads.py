@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db  # type: ignore
 from app.models.project import Project  # type: ignore
 from app.models.upload import Upload  # type: ignore
+from app.schemas import UploadResponse  # type: ignore
 
 router = APIRouter(tags=["uploads"])
 
@@ -30,11 +31,13 @@ def validate_file_extension(filename: str) -> bool:
 
 
 @router.post(
-    "/projects/{project_id}/uploads", status_code=status.HTTP_201_CREATED, response_model=None
+    "/projects/{project_id}/uploads",
+    status_code=status.HTTP_201_CREATED,
+    response_model=UploadResponse,
 )
 async def create_upload(
     project_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)  # noqa: B008
-) -> Upload:
+) -> UploadResponse:
     """
     Create a new upload for a project.
 
@@ -107,8 +110,8 @@ async def create_upload(
         )
 
 
-@router.get("/uploads/{upload_id}", response_model=None)
-def get_upload(upload_id: int, db: Session = Depends(get_db)) -> Upload:  # noqa: B008
+@router.get("/uploads/{upload_id}", response_model=UploadResponse)
+def get_upload(upload_id: int, db: Session = Depends(get_db)) -> UploadResponse:  # noqa: B008
     """
     Get upload details by ID.
 
