@@ -108,13 +108,13 @@ class Edge:
     src_host: str
     dst_host: str
     protocol: Literal["splunktcp", "http_event_collector", "syslog", "tcp", "udp"]
-    path_kind: str
+    path_kind: Literal["forwarding", "hec", "syslog", "scripted_input", "modinput"]
     sources: list[str] = field(default_factory=list)
     sourcetypes: list[str] = field(default_factory=list)
     indexes: list[str] = field(default_factory=list)
     filters: list[str] = field(default_factory=list)
     drop_rules: list[str] = field(default_factory=list)
-    tls: bool = False
+    tls: bool | None = None
     weight: int = 1
     app_contexts: list[str] = field(default_factory=list)
     confidence: Literal["explicit", "derived"] = "explicit"
@@ -290,7 +290,9 @@ def build_host(parsed: ParsedConfig) -> Host:
     return Host(id=hostname, roles=roles, labels=labels, apps=apps)
 
 
-def determine_protocol_and_path_kind(input_stanza: InputStanza) -> tuple[str, str]:
+def determine_protocol_and_path_kind(
+    input_stanza: InputStanza,
+) -> tuple[str, Literal["forwarding", "hec", "syslog", "scripted_input", "modinput"]]:
     """
     Map input type to protocol and path_kind per spec section 11.
 
@@ -301,14 +303,14 @@ def determine_protocol_and_path_kind(input_stanza: InputStanza) -> tuple[str, st
         input_stanza: InputStanza object with input_type field
 
     Returns:
-        Tuple of (protocol, path_kind) strings
+        Tuple of (protocol, path_kind) strings where path_kind is a Literal type
     """
     input_type = input_stanza.input_type.lower()
 
     # Check direct mappings
     for key, (protocol, path_kind) in PROTOCOL_MAPPINGS.items():
         if input_type.startswith(key.lower()):
-            return (protocol, path_kind)
+            return (protocol, path_kind)  # type: ignore
 
     # Default fallback: assume forwarded via splunktcp
     logger.warning(
@@ -379,7 +381,8 @@ def apply_transforms_to_index(
     3. For each matching props, evaluate TRANSFORMS-* in order
     4. Apply index routing (DEST_KEY=_MetaData:Index)
     5. Apply drops (DEST_KEY=queue, FORMAT=nullQueue)
-    6. Track filters and drop rules for traceability
+    6. Handle sourcetype rewrites and re-evaluate props if sourcetype changes
+    7. Track filters and drop rules for traceability
 
     Note: This is simplified evaluation without regex matching on event data (per spec assumption).
 
@@ -396,64 +399,115 @@ def apply_transforms_to_index(
     filters_applied = []
     drop_rules = []
 
-    # Find matching props stanzas
-    matching_props = []
+    # Track current sourcetype for rewrites
+    current_sourcetype = input_stanza.sourcetype
 
-    for prop in props:
-        # PropsStanza doesn't have a disabled field
-        # Match by stanza_type and stanza_value
-        if prop.stanza_type == "sourcetype" and prop.stanza_value == input_stanza.sourcetype:
-            matching_props.append(("sourcetype", prop))
-        # Match by source (with wildcard support - simplified)
-        elif prop.stanza_type == "source" and input_stanza.source_path:
-            if prop.stanza_value == input_stanza.source_path:
-                matching_props.append(("source", prop))
-            elif prop.stanza_value.endswith("*"):
-                prefix = prop.stanza_value[:-1]
-                if input_stanza.source_path.startswith(prefix):
-                    matching_props.append(("source", prop))
-        # Match by host
-        elif prop.stanza_type == "host" and prop.stanza_value == input_stanza.host:
-            matching_props.append(("host", prop))
-    matching_props.sort(key=lambda x: PRECEDENCE_ORDER.get(x[0], 0), reverse=True)
+    # Track which props we've already processed to avoid infinite loops
+    processed_props = set()
 
-    # Apply transforms from matching props
-    for _match_type, prop in matching_props:
-        # Evaluate each transform reference in order
-        transform_refs = prop.transforms or []
+    # Iteratively find and apply props/transforms until no more sourcetype changes
+    max_iterations = 10  # Prevent infinite loops
+    iteration = 0
 
-        for transform_ref in transform_refs:
-            # Look up transform by name (stanza_name, not transform_name)
-            transform = next(
-                (t for t in transforms if t.stanza_name == transform_ref),
-                None,
-            )
+    while iteration < max_iterations:
+        iteration += 1
 
-            if not transform:
-                logger.warning(
-                    f"Transform '{transform_ref}' referenced in props but not found "
-                    f"in transforms.conf"
-                )
+        # Find matching props stanzas based on current sourcetype
+        matching_props = []
+
+        for prop in props:
+            # Skip already processed props to avoid loops
+            prop_key = (prop.stanza_type, prop.stanza_value)
+            if prop_key in processed_props:
                 continue
 
-            # Apply index routing
-            if transform.is_index_routing:
-                if transform.format:
-                    current_indexes = [transform.format]
-                    filters_applied.append(f"TRANSFORMS:{transform_ref}")
-                else:
+            # Match by stanza_type and stanza_value
+            if prop.stanza_type == "sourcetype" and prop.stanza_value == current_sourcetype:
+                matching_props.append(("sourcetype", prop))
+            # Match by source (with wildcard support - simplified)
+            elif prop.stanza_type == "source" and input_stanza.source_path:
+                if prop.stanza_value == input_stanza.source_path:
+                    matching_props.append(("source", prop))
+                elif prop.stanza_value.endswith("*"):
+                    prefix = prop.stanza_value[:-1]
+                    if input_stanza.source_path.startswith(prefix):
+                        matching_props.append(("source", prop))
+            # Match by host
+            elif prop.stanza_type == "host" and prop.stanza_value == input_stanza.host:
+                matching_props.append(("host", prop))
+
+        # If no new matching props, we're done
+        if not matching_props:
+            break
+
+        # Sort by precedence: host < source < sourcetype (higher number = higher precedence)
+        matching_props.sort(key=lambda x: PRECEDENCE_ORDER.get(x[0], 0), reverse=True)
+
+        sourcetype_changed = False
+
+        # Apply transforms from matching props
+        for _match_type, prop in matching_props:
+            # Mark this prop as processed
+            prop_key = (prop.stanza_type, prop.stanza_value)
+            processed_props.add(prop_key)
+
+            # Evaluate each transform reference in order
+            transform_refs = prop.transforms or []
+
+            for transform_ref in transform_refs:
+                # Look up transform by name (stanza_name, not transform_name)
+                transform = next(
+                    (t for t in transforms if t.stanza_name == transform_ref),
+                    None,
+                )
+
+                if not transform:
                     logger.warning(
-                        f"Transform '{transform_ref}' is index routing but has no FORMAT value"
+                        f"Transform '{transform_ref}' referenced in props but not found "
+                        f"in transforms.conf"
                     )
+                    continue
 
-            # Apply drops
-            if transform.is_drop:
-                drop_rules.append(f"DROP:{transform_ref}")
-                current_indexes = []  # Clear indexes - data is dropped
+                # Apply index routing
+                if transform.is_index_routing:
+                    if transform.format:
+                        current_indexes = [transform.format]
+                        filters_applied.append(f"TRANSFORMS:{transform_ref}")
+                    else:
+                        logger.warning(
+                            f"Transform '{transform_ref}' is index routing but has no FORMAT "
+                            f"value"
+                        )
 
-            # Track sourcetype rewrites (affects subsequent matching)
-            if transform.is_sourcetype_rewrite:
-                filters_applied.append(f"SOURCETYPE_REWRITE:{transform_ref}")
+                # Apply drops
+                if transform.is_drop:
+                    drop_rules.append(f"DROP:{transform_ref}")
+                    current_indexes = []  # Clear indexes - data is dropped
+
+                # Track sourcetype rewrites (affects subsequent matching)
+                if transform.is_sourcetype_rewrite:
+                    if transform.format:
+                        # Update current sourcetype and flag for re-evaluation
+                        new_sourcetype = transform.format
+                        if new_sourcetype != current_sourcetype:
+                            current_sourcetype = new_sourcetype
+                            sourcetype_changed = True
+                            filters_applied.append(f"SOURCETYPE_REWRITE:{transform_ref}")
+                    else:
+                        logger.warning(
+                            f"Transform '{transform_ref}' is sourcetype rewrite but has no "
+                            f"FORMAT value"
+                        )
+
+        # If sourcetype changed, continue to next iteration to re-evaluate props
+        if not sourcetype_changed:
+            break
+
+    if iteration >= max_iterations:
+        logger.warning(
+            f"Max iterations ({max_iterations}) reached in apply_transforms_to_index for "
+            f"input '{input_stanza.stanza_name}'. Possible circular sourcetype rewrite."
+        )
 
     return (current_indexes, filters_applied, drop_rules)
 
@@ -495,8 +549,8 @@ def build_edges_from_inputs_outputs(parsed: ParsedConfig, src_host: Host) -> lis
         if input_stanza.disabled:
             continue
 
-        # Determine protocol and path_kind
-        protocol, path_kind = determine_protocol_and_path_kind(input_stanza)
+        # Determine path_kind from input type
+        _, path_kind = determine_protocol_and_path_kind(input_stanza)
 
         # Apply transforms to get indexes, filters, drops
         final_indexes, filters_applied, drop_rules = apply_transforms_to_index(
@@ -513,14 +567,14 @@ def build_edges_from_inputs_outputs(parsed: ParsedConfig, src_host: Host) -> lis
             edge = Edge(
                 src_host=src_host.id,
                 dst_host="unknown_destination",
-                protocol=protocol,  # type: ignore
+                protocol="splunktcp",  # Unknown destination, assume splunktcp
                 path_kind=path_kind,
                 sources=sources,
                 sourcetypes=sourcetypes,
                 indexes=final_indexes,
                 filters=filters_applied,
                 drop_rules=drop_rules,
-                tls=False,
+                tls=None,  # Unknown when no outputs configured
                 weight=1,
                 app_contexts=app_contexts,
                 confidence="derived",
@@ -529,6 +583,7 @@ def build_edges_from_inputs_outputs(parsed: ParsedConfig, src_host: Host) -> lis
             continue
 
         # Create edge for each output target
+        # Protocol is splunktcp when forwarding via outputs (tcpout)
         for target_host, tls_enabled, _group_name in output_targets:
             confidence: Literal["explicit", "derived"] = (
                 "derived" if is_ambiguous_routing else "explicit"
@@ -537,7 +592,7 @@ def build_edges_from_inputs_outputs(parsed: ParsedConfig, src_host: Host) -> lis
             edge = Edge(
                 src_host=src_host.id,
                 dst_host=target_host,
-                protocol=protocol,  # type: ignore
+                protocol="splunktcp",  # Forwarding via outputs uses splunktcp
                 path_kind=path_kind,
                 sources=sources,
                 sourcetypes=sourcetypes,
@@ -556,7 +611,7 @@ def build_edges_from_inputs_outputs(parsed: ParsedConfig, src_host: Host) -> lis
 
 def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
     """
-    Merge edges with same src_host, dst_host, protocol to reduce graph complexity.
+    Merge edges with same src_host, dst_host, protocol, path_kind to reduce graph complexity.
 
     - Use least confident value (prefer "derived" over "explicit"; "derived" is lower confidence)
     - Combine sources, sourcetypes, indexes, filters, drop_rules, app_contexts (deduplicate)
@@ -572,11 +627,11 @@ def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
     Returns:
         List of merged Edge objects
     """
-    # Group edges by (src_host, dst_host, protocol)
-    edge_groups: dict[tuple[str, str, str], list[Edge]] = {}
+    # Group edges by (src_host, dst_host, protocol, path_kind)
+    edge_groups: dict[tuple[str, str, str, str], list[Edge]] = {}
 
     for edge in edges:
-        key = (edge.src_host, edge.dst_host, edge.protocol)
+        key = (edge.src_host, edge.dst_host, edge.protocol, edge.path_kind)
         if key not in edge_groups:
             edge_groups[key] = []
         edge_groups[key].append(edge)
@@ -584,7 +639,7 @@ def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
     # Merge each group
     merged_edges = []
 
-    for (src, dst, proto), group in edge_groups.items():
+    for (src, dst, proto, path_kind), group in edge_groups.items():
         if len(group) == 1:
             # No merging needed
             merged_edges.append(group[0])
@@ -595,13 +650,13 @@ def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
             src_host=src,
             dst_host=dst,
             protocol=proto,  # type: ignore
-            path_kind=group[0].path_kind,  # Use first path_kind (could merge if needed)
+            path_kind=path_kind,  # type: ignore
             sources=[],
             sourcetypes=[],
             indexes=[],
             filters=[],
             drop_rules=[],
-            tls=True,  # Start with True, will be set to False if any edge has False
+            tls=None,  # Start with None, set to False if any False, True if all True
             weight=0,
             app_contexts=[],
             confidence="explicit",  # Start with explicit, will be downgraded if any derived
@@ -614,6 +669,7 @@ def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
         filters_list = []
         drop_rules_set = set()
         app_contexts_set = set()
+        tls_values = []
 
         for edge in group:
             sources_set.update(edge.sources)
@@ -623,9 +679,9 @@ def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
             drop_rules_set.update(edge.drop_rules)
             app_contexts_set.update(edge.app_contexts)
 
-            # Most restrictive TLS
-            if not edge.tls:
-                merged.tls = False
+            # Track TLS values for proper merging
+            if edge.tls is not None:
+                tls_values.append(edge.tls)
 
             # Sum weights
             merged.weight += edge.weight
@@ -633,6 +689,15 @@ def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
             # Lowest confidence
             if edge.confidence == "derived":
                 merged.confidence = "derived"
+
+        # Determine merged TLS: False if any False, True if all True, None if mixed or all None
+        if tls_values:
+            if any(not tls for tls in tls_values):
+                merged.tls = False
+            elif all(tls for tls in tls_values):
+                merged.tls = True
+            else:
+                merged.tls = None  # Mixed values or all None
 
         # Deduplicate filters while preserving order
         seen_filters = set()
@@ -858,14 +923,14 @@ def resolve_and_create_graph(job_id: int, parsed: ParsedConfig, db_session: Sess
         # Build canonical graph
         canonical_json = build_canonical_graph(parsed)
 
-        # Query Job to get project_id
+        # Query Job to get project_id via upload relationship
         job = db_session.query(Job).filter(Job.id == job_id).first()
         if not job:
             raise ValueError(f"Job with id={job_id} not found")
 
-        # Create Graph record
+        # Create Graph record (upload relationship is loaded with lazy="selectin")
         graph = Graph(
-            project_id=job.project_id,
+            project_id=job.upload.project_id,
             job_id=job_id,
             version=GRAPH_VERSION,
             json_blob=canonical_json,
