@@ -14,7 +14,7 @@ router = APIRouter(tags=["uploads"])
 
 # Allowed file extensions per spec section 8
 ALLOWED_EXTENSIONS = {".zip", ".tar.gz", ".tar", ".tgz"}
-MAX_FILE_SIZE = 3 * 1024 * 1024 * 1024  # 2GB per spec section 13
+MAX_FILE_SIZE = 3 * 1024 * 1024 * 1024  # 3GB per spec section 13
 
 # Sentinel value for storage_uri before file is saved
 STORAGE_URI_PENDING = "__PENDING__"

@@ -166,9 +166,10 @@ export function GraphExplorerPage() {
     visNetworkRef.current?.focusNode(nodeId)
   }, [])
 
+  // This callback is intentionally left empty as a placeholder for future filter side effects.
+  // FilterPanel expects an onFilterChange prop, but no action is currently required here.
   const handleFilterChange = useCallback(() => {
-    // Trigger any necessary side effects when filters change
-    // Currently just a placeholder for FilterPanel
+    // No-op: reserved for future use (e.g., analytics, debounced API calls)
   }, [])
 
   // Loading state
