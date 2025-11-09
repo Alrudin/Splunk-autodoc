@@ -92,11 +92,13 @@ export function useGraph(graphId: string | undefined): UseGraphReturn {
 
   // Fetch graph and findings on mount or when graphId changes
   useEffect(() => {
-    if (graphId) {
-      fetchGraph()
-      fetchFindings()
-    }
-  }, [graphId, fetchGraph, fetchFindings])
+    if (!graphId) return;
+    // Call local async functions directly to avoid dependency cycle
+    (async () => {
+      await fetchGraph();
+      await fetchFindings();
+    })();
+  }, [graphId])
 
   return {
     graph: currentGraph,

@@ -130,10 +130,7 @@ export function GraphExplorerPage() {
     (v) => v !== undefined && v !== ''
   ).length
 
-  // Handle filter change callback
-  const handleFilterChange = useCallback(() => {
-    // Filters are already in Zustand store, just trigger re-render via useMemo
-  }, [])
+  // Filters are managed by Zustand; no filter change callback needed
 
   // Handle edge map updates from VisNetworkCanvas
   const handleEdgeMapUpdate = useCallback((newEdgeMap: Map<string, Edge>) => {
@@ -152,17 +149,20 @@ export function GraphExplorerPage() {
   const handleFilterByHost = useCallback((hostId: string) => {
     setFilters({ ...filters, host: hostId })
   }, [filters, setFilters])
+  const handleFilterByHost = useCallback((hostId: string) => {
+    setFilters((prev) => ({ ...prev, host: hostId }))
+  }, [setFilters])
 
   const handleFilterByProtocol = useCallback((protocol: string) => {
-    setFilters({ ...filters, protocol: protocol as 'splunktcp' | 'http_event_collector' | 'syslog' | 'tcp' | 'udp' | '' })
-  }, [filters, setFilters])
+    setFilters((prev) => ({
+      ...prev,
+      protocol: protocol as 'splunktcp' | 'http_event_collector' | 'syslog' | 'tcp' | 'udp' | ''
+    }))
+  }, [setFilters])
 
   const handleFilterByIndex = useCallback((index: string) => {
-    setFilters({ ...filters, index })
-  }, [filters, setFilters])
-
-  const handleFocusNode = useCallback((nodeId: string) => {
-    visNetworkRef.current?.focusNode(nodeId)
+    setFilters((prev) => ({ ...prev, index }))
+  }, [setFilters])
   }, [])
 
   const handleFocusEdge = useCallback((edgeId: string) => {
@@ -240,7 +240,7 @@ export function GraphExplorerPage() {
         {/* Filter Panel */}
         {showFilters && (
           <div className="w-80 border-r overflow-y-auto flex-shrink-0">
-            <FilterPanel onFilterChange={handleFilterChange} />
+            <FilterPanel />
           </div>
         )}
 

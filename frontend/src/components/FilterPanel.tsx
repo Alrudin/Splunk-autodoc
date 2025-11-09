@@ -46,23 +46,19 @@ export function FilterPanel({ onFilterChange }: FilterPanelProps) {
   // Update filters when debounced values change
   useEffect(() => {
     updateFilter('host', debouncedHost || undefined)
-    onFilterChange()
-  }, [debouncedHost, updateFilter, onFilterChange])
+  }, [debouncedHost, updateFilter])
 
   useEffect(() => {
     updateFilter('index', debouncedIndex || undefined)
-    onFilterChange()
-  }, [debouncedIndex, updateFilter, onFilterChange])
+  }, [debouncedIndex, updateFilter])
 
   useEffect(() => {
     updateFilter('app', debouncedApp || undefined)
-    onFilterChange()
-  }, [debouncedApp, updateFilter, onFilterChange])
+  }, [debouncedApp, updateFilter])
 
   useEffect(() => {
     updateFilter('sourcetype', debouncedSourcetype || undefined)
-    onFilterChange()
-  }, [debouncedSourcetype, updateFilter, onFilterChange])
+  }, [debouncedSourcetype, updateFilter])
 
   // Count active filters
   const activeFilterCount = Object.values(filters).filter(

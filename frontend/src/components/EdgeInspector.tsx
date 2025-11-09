@@ -42,9 +42,9 @@ export function EdgeInspector({ edgeId, edgeMap, findings, onClose, onFilterByPr
       if (context.src_host && context.dst_host) {
         return context.src_host === srcHost && context.dst_host === dstHost
       }
-      // Handle single-host findings that might affect this edge
+      // Only include single-host findings for self-loop edges (srcHost === dstHost)
       if (context.host) {
-        return context.host === srcHost || context.host === dstHost
+        return srcHost === dstHost && context.host === srcHost
       }
       // Skip findings without relevant host context
       return false

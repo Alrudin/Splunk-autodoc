@@ -106,16 +106,28 @@ export const VisNetworkCanvas = forwardRef<VisNetworkHandle, VisNetworkCanvasPro
     const map = new Map<string, Edge>()
     const edgeCount = edges.length
     const visEdgeList = edges.map((edge, idx) => {
-      // Generate robust unique edge ID using delimiter that won't appear in hostnames
-      // Include all distinguishing properties to ensure uniqueness for parallel edges
-      const edgeComponents = {
-        src: edge.src_host,
-        dst: edge.dst_host,
-        protocol: edge.protocol,
-        indexes: edge.indexes.sort().join(','),
-        sourcetypes: edge.sourcetypes.sort().join(','),
+      // Generate robust unique edge ID using a hash of distinguishing properties
+      const edgeComponents = [
+        edge.src_host,
+        edge.dst_host,
+        edge.protocol,
+        edge.indexes.slice().sort().join(','),
+        edge.sourcetypes.slice().sort().join(','),
+        String(edge.tls),
+        String(edge.weight),
+      ]
+      // Simple hash function for stable edge IDs
+      function hashString(str: string): string {
+        let hash = 0, i, chr
+        if (str.length === 0) return hash.toString()
+        for (i = 0; i < str.length; i++) {
+          chr = str.charCodeAt(i)
+          hash = ((hash << 5) - hash) + chr
+          hash |= 0 // Convert to 32bit integer
+        }
+        return Math.abs(hash).toString()
       }
-      const edgeId = `${edgeComponents.src}|||${edgeComponents.dst}|||${edgeComponents.protocol}|||${edgeComponents.indexes}|||${edgeComponents.sourcetypes}|||${idx}`
+      const edgeId = hashString(edgeComponents.join('|'))
 
       // Store edge in map for lookup
       map.set(edgeId, edge)
@@ -251,13 +263,17 @@ export const VisNetworkCanvas = forwardRef<VisNetworkHandle, VisNetworkCanvasPro
         network.setOptions({ physics: { enabled: false } })
       })
 
-      // Performance optimization: hide edges during drag
+      // Performance optimization: hide edges during drag only for large graphs
       network.on('dragStart', () => {
-        network.setOptions({ edges: { hidden: true } })
+        if (edges.length > 1000) {
+          network.setOptions({ edges: { hidden: true } })
+        }
       })
 
       network.on('dragEnd', () => {
-        network.setOptions({ edges: { hidden: false } })
+        if (edges.length > 1000) {
+          network.setOptions({ edges: { hidden: false } })
+        }
       })
 
       // Cleanup on unmount only
