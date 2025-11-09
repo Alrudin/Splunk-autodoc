@@ -5,6 +5,7 @@ from app.database import get_db  # type: ignore
 from app.models.project import Project  # type: ignore
 from app.models.upload import Upload  # type: ignore
 from app.schemas import UploadResponse  # type: ignore
+from app.services import storage
 
 router = APIRouter(tags=["uploads"])
 
@@ -47,7 +48,7 @@ async def create_upload(
         db: Database session
 
     Returns:
-        Created upload record with pending status
+        Created upload record with completed status and actual storage location
 
     Raises:
         HTTPException: 404 if project not found, 400 if file validation fails
@@ -67,47 +68,75 @@ async def create_upload(
             detail=f"Invalid file extension. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
         )
 
-    # Read file to get size (in production, this should stream to disk)
-    content = await file.read()
-    file_size = len(content)
-
-    if file_size > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File size exceeds maximum allowed size of {MAX_FILE_SIZE / (1024**3):.1f}GB",
-        )
-
-    # Create placeholder storage URI (actual file saving handled by storage service)
-    # Format: /data/artifacts/pending/{filename}
-    storage_uri = f"/data/artifacts/pending/{file.filename}"
-
+    # Step 1: Create upload record first (to get upload_id for directory creation)
+    upload = Upload(
+        project_id=project_id,
+        filename=file.filename,
+        size=0,  # Will be updated after file save
+        status="pending",
+        storage_uri="pending",  # Will be updated after file save
+    )
     try:
-        # Create upload record
-        upload = Upload(
-            project_id=project_id,
-            filename=file.filename,
-            size=file_size,
-            status="pending",
-            storage_uri=storage_uri,
-        )
         db.add(upload)
         db.commit()
         db.refresh(upload)
-
-        # Note: Actual file saving will be implemented in storage service
-        # Storage service will:
-        # - Create directory structure /data/artifacts/{upload_id}/
-        # - Save uploaded file securely
-        # - Update storage_uri with actual path
-        # - Validate file content (magic bytes, safe extraction)
-
-        return upload
     except Exception as e:
         db.rollback()
         raise HTTPException(  # noqa: B904
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create upload: {str(e)}",
+            detail=f"Failed to create upload record: {str(e)}",
         )
+
+    # Step 2: Save file using storage service (streaming with size enforcement)
+    try:
+        file_path, file_size = await storage.save_upload_file(
+            upload.id, file, file.filename, MAX_FILE_SIZE
+        )
+    except ValueError as e:
+        # Size limit exceeded during streaming
+        db.delete(upload)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        # Clean up database record on storage error
+        db.delete(upload)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save file: {str(e)}",
+        ) from e
+
+    # Step 3: Validate archive content (magic bytes check)
+    if not storage.validate_archive_content(file_path):
+        # Clean up saved file and database record
+        storage.cleanup_upload(upload.id)
+        db.delete(upload)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid archive format",
+        )
+
+    # Step 4: Update upload record with actual values
+    try:
+        storage_uri = storage.generate_storage_uri(upload.id, file.filename)
+        upload.size = file_size
+        upload.storage_uri = storage_uri
+        upload.status = "completed"
+        db.commit()
+        db.refresh(upload)
+        return upload
+    except Exception as e:
+        # Clean up on database update error
+        storage.cleanup_upload(upload.id)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update upload record: {str(e)}",
+        ) from e
 
 
 @router.get("/uploads/{upload_id}", response_model=UploadResponse)
