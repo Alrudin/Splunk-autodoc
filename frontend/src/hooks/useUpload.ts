@@ -21,9 +21,8 @@ export function useUpload(): UseUploadReturn {
       setUploadProgress(0)
       setError(null)
 
-      const upload = await api.createUpload(projectId, file, (progress: number) => {
-        setUploadProgress(progress)
-      })
+      const upload = await api.createUpload(projectId, file)
+      setUploadProgress(50) // Simulate progress since upload progress tracking is not yet implemented
       
       if (upload) {
         setUploadProgress(100)
