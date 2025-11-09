@@ -11,6 +11,7 @@ This directory contains static assets that are served directly without processin
 ## Usage
 
 Files placed in this directory are:
+
 - Copied as-is to the build output (`dist/`) during `npm run build`
 - Served from the root path (e.g., `/favicon.svg`)
 - Not processed by Vite's build pipeline
@@ -18,6 +19,7 @@ Files placed in this directory are:
 ## Adding Assets
 
 Add additional static assets here as needed:
+
 - `manifest.json` - PWA manifest
 - `apple-touch-icon.png` - iOS home screen icon
 - `logo192.png`, `logo512.png` - App icons
