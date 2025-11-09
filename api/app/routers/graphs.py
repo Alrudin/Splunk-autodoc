@@ -309,7 +309,7 @@ def validate_graph(graph_id: int, db: Session = Depends(get_db)) -> list[Finding
 def export_graph_endpoint(
     graph_id: int,
     format: str = Query(..., description="Export format: dot, json, png, pdf"),
-    background_tasks: BackgroundTasks = BackgroundTasks(),  # noqa: B008
+    background_tasks: BackgroundTasks = Depends(),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response | FileResponse:
     """
@@ -377,7 +377,13 @@ def export_graph_endpoint(
             file_path = content_or_path
 
             # Add background task to delete file after response
-            background_tasks.add_task(os.unlink, str(file_path))
+            def safe_unlink(path: str):
+                try:
+                    os.unlink(path)
+                except Exception as e:
+                    logger.warning(f"Failed to delete temporary file {path}: {e}")
+
+            background_tasks.add_task(safe_unlink, str(file_path))
 
             return FileResponse(
                 path=str(file_path),

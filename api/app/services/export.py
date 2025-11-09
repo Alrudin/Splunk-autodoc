@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import graphviz  # type: ignore
-from graphviz.backend import CalledProcessError, ExecutableNotFound
+from graphviz.backend import CalledProcessError, ExecutableNotFound  # type: ignore
 
 from app.services.storage import get_exports_directory
 
@@ -67,15 +67,23 @@ EDGE_COLORS = {
     "udp": "#C2185B",  # Pink
 }
 
+# Maximum number of indexes to display in edge labels
+MAX_DISPLAYED_INDEXES = 3
+
+# Penwidth calculation constants
+BASE_PENWIDTH = 1.0
+WEIGHT_MULTIPLIER = 0.5
+MAX_PENWIDTH = 5.0
+
 logger = logging.getLogger(__name__)
 
 
-def validate_export_format(format: str) -> str:
+def validate_export_format(export_format: str) -> str:
     """
     Validate that the export format is supported.
 
     Args:
-        format: The export format string (case-insensitive)
+        export_format: The export format string (case-insensitive)
 
     Returns:
         The validated format string in lowercase
@@ -83,10 +91,10 @@ def validate_export_format(format: str) -> str:
     Raises:
         ValueError: If the format is not supported
     """
-    format_lower = format.lower()
+    format_lower = export_format.lower()
     if format_lower not in EXPORT_FORMATS:
         raise ValueError(
-            f"Unsupported export format: {format}. "
+            f"Unsupported export format: {export_format}. "
             f"Supported formats: {', '.join(sorted(EXPORT_FORMATS))}"
         )
     return format_lower
@@ -184,12 +192,14 @@ def build_dot_from_canonical_graph(graph_json: dict[str, Any]) -> str:
         indexes = edge.get("indexes", [])
         tls_enabled = edge.get("tls", False)
         weight = edge.get("weight", 1)
-
-        # Determine edge color based on protocol
-        color = EDGE_COLORS.get(protocol, "#000000")
-
         # Build label with protocol and indexes
         label_parts = [protocol]
+        if indexes:
+            # Limit to MAX_DISPLAYED_INDEXES for readability
+            label_parts.append(", ".join(indexes[:MAX_DISPLAYED_INDEXES]))
+            if len(indexes) > MAX_DISPLAYED_INDEXES:
+                label_parts.append(f"(+{len(indexes) - MAX_DISPLAYED_INDEXES} more)")
+        label = "\\n".join(label_parts)
         if indexes:
             label_parts.append(", ".join(indexes[:3]))  # Limit to 3 indexes for readability
             if len(indexes) > 3:
@@ -206,7 +216,8 @@ def build_dot_from_canonical_graph(graph_json: dict[str, Any]) -> str:
             edge_attrs.append("style=bold")
 
         # Set penwidth based on weight (thicker for higher weight)
-        penwidth = min(1.0 + (weight - 1) * 0.5, 5.0)  # Cap at 5.0
+        # Cap at MAX_PENWIDTH
+        penwidth = min(BASE_PENWIDTH + (weight - 1) * WEIGHT_MULTIPLIER, MAX_PENWIDTH)
         edge_attrs.append(f"penwidth={penwidth}")
 
         dot_lines.append(f'    "{src}" -> "{dst}" [{", ".join(edge_attrs)}];')
@@ -245,7 +256,7 @@ def export_as_json(graph_json: dict[str, Any]) -> str:
     return json.dumps(graph_json, indent=2, sort_keys=False)
 
 
-def export_as_image(graph_json: dict[str, Any], format: str, graph_id: int) -> Path:
+def export_as_image(graph_json: dict[str, Any], export_format: str, graph_id: int) -> Path:
     """
     Generate PNG or PDF format export using Graphviz rendering.
 
@@ -262,28 +273,28 @@ def export_as_image(graph_json: dict[str, Any], format: str, graph_id: int) -> P
 
     Args:
         graph_json: Canonical graph structure
-        format: Output format ("png" or "pdf")
+        export_format: Output format ("png" or "pdf")
         graph_id: Graph ID for filename
 
     Returns:
         Path to rendered file
 
     Raises:
-        ValueError: If format is not "png" or "pdf"
+        ValueError: If export_format is not "png" or "pdf"
         RuntimeError: If Graphviz is not installed or rendering fails
         OSError: If file I/O errors occur
     """
-    if format not in {"png", "pdf"}:
-        raise ValueError(f"Invalid image format: {format}. Must be 'png' or 'pdf'.")
+    if export_format not in {"png", "pdf"}:
+        raise ValueError(f"Invalid image format: {export_format}. Must be 'png' or 'pdf'.")
 
-    logger.info(f"Rendering graph {graph_id} to {format.upper()} format")
+    logger.info(f"Rendering graph {graph_id} to {export_format.upper()} format")
 
     try:
         # Build DOT string
         dot_string = build_dot_from_canonical_graph(graph_json)
 
         # Create Graphviz Source object
-        source = graphviz.Source(dot_string, format=format)
+        source = graphviz.Source(dot_string, format=export_format)
 
         # Get exports directory
         exports_dir = get_exports_directory()
@@ -297,19 +308,20 @@ def export_as_image(graph_json: dict[str, Any], format: str, graph_id: int) -> P
 
         # Render to file (cleanup=True removes intermediate .dot file)
         source.render(
-            filename=str(graph_export_dir / output_name),
-            format=format,
+            filename=output_name,
+            directory=str(graph_export_dir),
+            format=export_format,
             cleanup=True,
         )
 
         # Return path to rendered file
-        output_path = graph_export_dir / f"{output_name}.{format}"
+        output_path = graph_export_dir / f"{output_name}.{export_format}"
 
         if not output_path.exists():
             raise RuntimeError(f"Rendering succeeded but output file not found: {output_path}")
 
         file_size = output_path.stat().st_size
-        logger.info(f"Rendered graph {graph_id} to {format.upper()}: {file_size} bytes")
+        logger.info(f"Rendered graph {graph_id} to {export_format.upper()}: {file_size} bytes")
 
         return output_path
 
@@ -333,7 +345,7 @@ def export_as_image(graph_json: dict[str, Any], format: str, graph_id: int) -> P
 
 
 def export_graph(
-    graph_json: dict[str, Any], format: str, graph_id: int
+    graph_json: dict[str, Any], export_format: str, graph_id: int
 ) -> tuple[str | Path, str]:
     """
     Main export function that routes to appropriate format handler.
@@ -345,7 +357,7 @@ def export_graph(
 
     Args:
         graph_json: Canonical graph structure
-        format: Export format (dot, json, png, pdf)
+        export_format: Export format (dot, json, png, pdf)
         graph_id: Graph ID for filename/logging
 
     Returns:
@@ -354,12 +366,12 @@ def export_graph(
         - media_type: MIME type for HTTP response
 
     Raises:
-        ValueError: If format is invalid or graph is empty
+        ValueError: If export_format is invalid or graph is empty
         RuntimeError: If Graphviz is not installed or rendering fails
         OSError: If file I/O errors occur
     """
     # Validate format
-    format_lower = validate_export_format(format)
+    format_lower = validate_export_format(export_format)
 
     # Route to appropriate handler
     if format_lower == "dot":
@@ -380,4 +392,4 @@ def export_graph(
 
     else:
         # Should never reach here due to validate_export_format
-        raise ValueError(f"Unsupported format: {format}")
+        raise ValueError(f"Unsupported format: {export_format}")
