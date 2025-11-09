@@ -89,13 +89,21 @@ export interface Graph {
 }
 
 // Findings
+export interface FindingContext {
+  src_host?: string
+  dst_host?: string
+  host?: string
+  index?: string
+  [key: string]: unknown
+}
+
 export interface Finding {
   id: number
   graph_id: number
   severity: 'error' | 'warning' | 'info'
   code: string
   message: string
-  context: Record<string, unknown>
+  context: FindingContext
   created_at: string
 }
 
