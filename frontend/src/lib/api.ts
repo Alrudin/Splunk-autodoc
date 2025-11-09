@@ -20,7 +20,7 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function request<T>(endpoint: string, options?: RequestInit): Promise<T | undefined> {
   const url = `${config.API_BASE_URL}${endpoint}`
   
   // Build headers conditionally: don't set Content-Type for FormData
@@ -41,7 +41,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
   // Handle 204 No Content
   if (response.status === 204) {
-    return undefined as T
+    return undefined
   }
 
   return response.json()
