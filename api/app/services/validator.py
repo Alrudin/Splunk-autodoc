@@ -255,6 +255,9 @@ def collect_known_indexes(
     appear on edges to real (non-placeholder) destinations. This assumes that if
     data flows to a real host with an index, that index exists.
 
+    NOTE: This is a fallback heuristic. Prefer using declared indexes from
+    graph meta if available (see validate_graph()).
+
     Args:
         edges: List of edge dicts from canonical graph
         placeholder_host_ids: Set of placeholder host IDs (from get_placeholder_host_ids)
@@ -320,16 +323,25 @@ def detect_dangling_outputs(
         dst_host = edge.get("dst_host")
         if dst_host and dst_host in placeholder_host_ids:
             src_host = edge.get("src_host", "unknown")
+
+            # Validate field types for robustness
+            sources = edge.get("sources", [])
+            if not isinstance(sources, list):
+                sources = []
+            indexes = edge.get("indexes", [])
+            if not isinstance(indexes, list):
+                indexes = []
+
             context: dict[str, Any] = {
                 "src_host": src_host,
                 "dst_host": dst_host,
                 "protocol": edge.get("protocol"),
-                "sources": edge.get("sources", []),
-                "indexes": edge.get("indexes", []),
+                "sources": sources,
+                "indexes": indexes,
             }
             # Add traceability from meta if available
             if meta:
-                context["meta"] = meta
+                context["traceability"] = meta.get("traceability", {})
 
             finding = {
                 "code": "DANGLING_OUTPUT",
@@ -381,18 +393,27 @@ def detect_unknown_indexes(
         dst_host = edge.get("dst_host", "unknown")
         indexes = edge.get("indexes", [])
 
+        # Validate field type for robustness
+        if not isinstance(indexes, list):
+            continue
+
         for index in indexes:
             if index not in known_indexes:
+                # Validate field types for robustness
+                sourcetypes = edge.get("sourcetypes", [])
+                if not isinstance(sourcetypes, list):
+                    sourcetypes = []
+
                 context: dict[str, Any] = {
                     "src_host": src_host,
                     "dst_host": dst_host,
                     "index": index,
                     "protocol": edge.get("protocol"),
-                    "sourcetypes": edge.get("sourcetypes", []),
+                    "sourcetypes": sourcetypes,
                 }
                 # Add traceability from meta if available
                 if meta:
-                    context["meta"] = meta
+                    context["traceability"] = meta.get("traceability", {})
 
                 finding = {
                     "code": "UNKNOWN_INDEX",
@@ -410,7 +431,9 @@ def detect_unknown_indexes(
 
 
 def detect_unsecured_pipes(
-    edges: list[dict[str, Any]], meta: dict[str, Any]
+    edges: list[dict[str, Any]],
+    meta: dict[str, Any],
+    placeholder_host_ids: set[str],
 ) -> list[dict[str, Any]]:
     """
     Detect UNSECURED_PIPE findings: splunktcp/http connections without TLS.
@@ -418,9 +441,13 @@ def detect_unsecured_pipes(
     Checks edges with protocols in TLS_REQUIRED_PROTOCOLS. A finding is generated
     if tls=False or tls=None (unknown TLS state is treated as insecure).
 
+    Skips edges to placeholder/unreachable destinations to reduce noise, as
+    security concerns are moot for non-existent connections.
+
     Args:
         edges: List of edge dicts from canonical graph
         meta: Meta dict with traceability information
+        placeholder_host_ids: Set of placeholder host IDs (to skip)
 
     Returns:
         List of finding dicts with code, severity, message, context
@@ -441,21 +468,32 @@ def detect_unsecured_pipes(
     for edge in edges:
         protocol = edge.get("protocol")
         if protocol in TLS_REQUIRED_PROTOCOLS:
+            # Skip placeholder/unreachable destinations to reduce noise
+            dst_host = edge.get("dst_host")
+            if dst_host and dst_host in placeholder_host_ids:
+                continue
+
             tls = edge.get("tls")
             # tls=None is treated as unsecured (unknown = assume insecure)
             if tls is False or tls is None:
                 src_host = edge.get("src_host", "unknown")
                 dst_host = edge.get("dst_host", "unknown")
+
+                # Validate field types for robustness
+                sources = edge.get("sources", [])
+                if not isinstance(sources, list):
+                    sources = []
+
                 context: dict[str, Any] = {
                     "src_host": src_host,
                     "dst_host": dst_host,
                     "protocol": protocol,
                     "tls": tls,
-                    "sources": edge.get("sources", []),
+                    "sources": sources,
                 }
                 # Add traceability from meta if available
                 if meta:
-                    context["meta"] = meta
+                    context["traceability"] = meta.get("traceability", {})
 
                 finding = {
                     "code": "UNSECURED_PIPE",
@@ -502,21 +540,38 @@ def detect_drop_paths(
 
     for edge in edges:
         drop_rules = edge.get("drop_rules", [])
+
+        # Validate field type for robustness
+        if not isinstance(drop_rules, list):
+            continue
+
         if drop_rules:  # Non-empty list
             src_host = edge.get("src_host", "unknown")
             dst_host = edge.get("dst_host", "unknown")
             drop_rules_str = ", ".join(drop_rules)
+
+            # Validate field types for robustness
+            sources = edge.get("sources", [])
+            if not isinstance(sources, list):
+                sources = []
+            sourcetypes = edge.get("sourcetypes", [])
+            if not isinstance(sourcetypes, list):
+                sourcetypes = []
+            filters = edge.get("filters", [])
+            if not isinstance(filters, list):
+                filters = []
+
             context: dict[str, Any] = {
                 "src_host": src_host,
                 "dst_host": dst_host,
                 "drop_rules": drop_rules,
-                "sources": edge.get("sources", []),
-                "sourcetypes": edge.get("sourcetypes", []),
-                "filters": edge.get("filters", []),
+                "sources": sources,
+                "sourcetypes": sourcetypes,
+                "filters": filters,
             }
             # Add traceability from meta if available
             if meta:
-                context["meta"] = meta
+                context["traceability"] = meta.get("traceability", {})
 
             finding = {
                 "code": "DROP_PATH",
@@ -566,16 +621,22 @@ def detect_ambiguous_groups(
         if confidence == "derived":
             src_host = edge.get("src_host", "unknown")
             dst_host = edge.get("dst_host", "unknown")
+
+            # Validate field types for robustness
+            sources = edge.get("sources", [])
+            if not isinstance(sources, list):
+                sources = []
+
             context: dict[str, Any] = {
                 "src_host": src_host,
                 "dst_host": dst_host,
                 "protocol": edge.get("protocol"),
                 "confidence": confidence,
-                "sources": edge.get("sources", []),
+                "sources": sources,
             }
             # Add traceability from meta if available
             if meta:
-                context["meta"] = meta
+                context["traceability"] = meta.get("traceability", {})
 
             finding = {
                 "code": "AMBIGUOUS_GROUP",
@@ -590,6 +651,58 @@ def detect_ambiguous_groups(
 
     logger.debug(f"Detected {len(findings)} AMBIGUOUS_GROUP findings")
     return findings
+
+
+def get_declared_indexes_from_meta(meta: dict[str, Any]) -> set[str] | None:
+    """
+    Extract declared indexes from graph meta (source of truth).
+
+    Checks meta for a declared index set, which provides a more accurate
+    list of known indexes than the heuristic approach. This reduces false
+    UNKNOWN_INDEX findings.
+
+    Supports multiple formats:
+    - meta['declared_indexes']: List of index names (simple format)
+    - meta['clusters'][cluster_name]['indexes']: Per-cluster indexes
+    - meta['index_catalog']: Comprehensive index catalog
+
+    Args:
+        meta: Meta dict from canonical graph
+
+    Returns:
+        Set of declared index names, or None if no declaration found
+
+    Example:
+        >>> meta = {"declared_indexes": ["main", "test", "security"]}
+        >>> get_declared_indexes_from_meta(meta)
+        {'main', 'test', 'security'}
+        >>> get_declared_indexes_from_meta({})
+        >>> # Returns None
+    """
+    # Check for simple declared_indexes list
+    declared = meta.get("declared_indexes")
+    if declared and isinstance(declared, list):
+        return set(declared)
+
+    # Check for per-cluster indexes
+    clusters = meta.get("clusters")
+    if clusters and isinstance(clusters, dict):
+        all_indexes = set()
+        for cluster_info in clusters.values():
+            if isinstance(cluster_info, dict):
+                cluster_indexes = cluster_info.get("indexes", [])
+                if isinstance(cluster_indexes, list):
+                    all_indexes.update(cluster_indexes)
+        if all_indexes:
+            return all_indexes
+
+    # Check for index catalog
+    catalog = meta.get("index_catalog")
+    if catalog and isinstance(catalog, list):
+        return set(catalog)
+
+    # No declared indexes found
+    return None
 
 
 def validate_graph(graph_json: dict[str, Any]) -> list[dict[str, Any]]:
@@ -634,14 +747,25 @@ def validate_graph(graph_json: dict[str, Any]) -> list[dict[str, Any]]:
     placeholder_host_ids = get_placeholder_host_ids(hosts)
     logger.debug(f"Found {len(placeholder_host_ids)} placeholder hosts")
 
-    # Collect known indexes
-    known_indexes = collect_known_indexes(edges, placeholder_host_ids)
-    logger.debug(f"Found {len(known_indexes)} known indexes")
+    # Collect known indexes: prefer declared indexes from meta, fall back to heuristic
+    declared_indexes = get_declared_indexes_from_meta(meta)
+    if declared_indexes:
+        known_indexes = declared_indexes
+        logger.debug(
+            f"Using {len(known_indexes)} declared indexes from meta "
+            f"(source of truth)"
+        )
+    else:
+        known_indexes = collect_known_indexes(edges, placeholder_host_ids)
+        logger.debug(
+            f"Using {len(known_indexes)} indexes from heuristic analysis "
+            f"(no declared indexes in meta)"
+        )
 
     # Run all detection functions
     dangling_findings = detect_dangling_outputs(hosts, edges, meta)
     unknown_index_findings = detect_unknown_indexes(edges, known_indexes, meta)
-    unsecured_findings = detect_unsecured_pipes(edges, meta)
+    unsecured_findings = detect_unsecured_pipes(edges, meta, placeholder_host_ids)
     drop_findings = detect_drop_paths(edges, meta)
     ambiguous_findings = detect_ambiguous_groups(edges, meta)
 
@@ -673,8 +797,9 @@ def create_findings_in_db(
     """
     Create Finding records in database from finding dicts.
 
-    All findings are created in a single transaction. If any error occurs,
-    the transaction is rolled back and the exception is re-raised.
+    NOTE: This function does NOT commit the transaction. The caller is responsible
+    for committing the session after calling this function. This allows for
+    transactional integrity when combining with other operations (e.g., deletion).
 
     Args:
         graph_id: ID of the graph these findings belong to
@@ -682,7 +807,7 @@ def create_findings_in_db(
         db_session: SQLAlchemy database session
 
     Returns:
-        List of Finding instances with IDs populated
+        List of Finding instances (not yet committed or refreshed)
 
     Raises:
         SQLAlchemyError: If database operation fails
@@ -690,36 +815,24 @@ def create_findings_in_db(
     Example:
         >>> # Assuming db_session and finding_dicts are available
         >>> findings = create_findings_in_db(1, finding_dicts, db_session)
+        >>> db_session.commit()  # Caller commits
         >>> all(f.id is not None for f in findings)
         True
     """
-    try:
-        findings = []
-        for finding_dict in finding_dicts:
-            finding = Finding(
-                graph_id=graph_id,
-                severity=finding_dict["severity"],
-                code=finding_dict["code"],
-                message=finding_dict["message"],
-                context=finding_dict["context"],
-            )
-            db_session.add(finding)
-            findings.append(finding)
+    findings = []
+    for finding_dict in finding_dicts:
+        finding = Finding(
+            graph_id=graph_id,
+            severity=finding_dict["severity"],
+            code=finding_dict["code"],
+            message=finding_dict["message"],
+            context=finding_dict["context"],
+        )
+        db_session.add(finding)
+        findings.append(finding)
 
-        # Commit all findings in single transaction
-        db_session.commit()
-
-        # Refresh to get IDs
-        for finding in findings:
-            db_session.refresh(finding)
-
-        logger.info(f"Created {len(findings)} findings for graph_id={graph_id}")
-        return findings
-
-    except SQLAlchemyError as e:
-        db_session.rollback()
-        logger.error(f"Failed to create findings for graph_id={graph_id}: {e}")
-        raise
+    logger.debug(f"Added {len(findings)} findings for graph_id={graph_id} to session")
+    return findings
 
 
 def validate_and_store_findings(graph_id: int, db_session: Session) -> list[Finding]:
@@ -727,7 +840,8 @@ def validate_and_store_findings(graph_id: int, db_session: Session) -> list[Find
     Main entry point for validation with database persistence.
 
     Queries the graph, runs validation, deletes old findings (if re-validation),
-    and creates new findings in the database.
+    and creates new findings in the database. All operations are performed in
+    a single transaction to ensure atomicity.
 
     This function is called by:
     - Job execution after graph creation (future implementation)
@@ -738,7 +852,7 @@ def validate_and_store_findings(graph_id: int, db_session: Session) -> list[Find
         db_session: SQLAlchemy database session
 
     Returns:
-        List of Finding instances
+        List of Finding instances with IDs populated
 
     Raises:
         ValueError: If graph not found or invalid JSON structure
@@ -763,28 +877,43 @@ def validate_and_store_findings(graph_id: int, db_session: Session) -> list[Find
     # Run validation
     finding_dicts = validate_graph(graph_json)
 
-    # Delete existing findings for this graph (re-validation scenario)
+    # Wrap deletion and creation in single transactional block
     try:
+        # Delete existing findings for this graph (re-validation scenario)
+        # Use synchronize_session=False to avoid stale session issues
         deleted_count = (
-            db_session.query(Finding).filter(Finding.graph_id == graph_id).delete()
+            db_session.query(Finding)
+            .filter(Finding.graph_id == graph_id)
+            .delete(synchronize_session=False)
         )
-        db_session.commit()
         if deleted_count > 0:
             logger.info(
-                f"Deleted {deleted_count} existing findings for graph_id={graph_id} (re-validation)"
+                f"Deleted {deleted_count} existing findings for graph_id={graph_id} "
+                f"(re-validation)"
             )
+
+        # Create new findings (without committing internally)
+        findings = create_findings_in_db(graph_id, finding_dicts, db_session)
+
+        # Commit both operations in single transaction
+        db_session.commit()
+
+        # Refresh to get IDs
+        for finding in findings:
+            db_session.refresh(finding)
+
+        logger.info(
+            f"Validation complete for graph_id={graph_id}: "
+            f"{len(findings)} findings created"
+        )
+        return findings
+
     except SQLAlchemyError as e:
         db_session.rollback()
-        logger.error(f"Failed to delete existing findings for graph_id={graph_id}: {e}")
+        logger.error(
+            f"Failed to validate and store findings for graph_id={graph_id}: {e}"
+        )
         raise
-
-    # Create new findings
-    findings = create_findings_in_db(graph_id, finding_dicts, db_session)
-
-    logger.info(
-        f"Validation complete for graph_id={graph_id}: {len(findings)} findings created"
-    )
-    return findings
 
 
 def validate_graph_after_creation(graph: Graph, db_session: Session) -> list[Finding]:
