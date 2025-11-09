@@ -24,7 +24,7 @@ export function GraphExplorerPage() {
   const { graphId } = useParams<{ graphId: string }>()
   const { graph, findings, isLoading, error } = useGraph(graphId)
   const filters = useStore((state) => state.filters)
-  const setFilters = useStore((state) => state.setFilters)
+  const updateFilter = useStore((state) => state.updateFilter)
   const visNetworkRef = useRef<VisNetworkHandle>(null)
 
   // Local state
@@ -147,26 +147,28 @@ export function GraphExplorerPage() {
   }, [])
 
   const handleFilterByHost = useCallback((hostId: string) => {
-    setFilters({ ...filters, host: hostId })
-  }, [filters, setFilters])
-  const handleFilterByHost = useCallback((hostId: string) => {
-    setFilters((prev) => ({ ...prev, host: hostId }))
-  }, [setFilters])
+    updateFilter('host', hostId)
+  }, [updateFilter])
 
   const handleFilterByProtocol = useCallback((protocol: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      protocol: protocol as 'splunktcp' | 'http_event_collector' | 'syslog' | 'tcp' | 'udp' | ''
-    }))
-  }, [setFilters])
+    updateFilter('protocol', protocol as 'splunktcp' | 'http_event_collector' | 'syslog' | 'tcp' | 'udp' | '')
+  }, [updateFilter])
 
   const handleFilterByIndex = useCallback((index: string) => {
-    setFilters((prev) => ({ ...prev, index }))
-  }, [setFilters])
-  }, [])
+    updateFilter('index', index)
+  }, [updateFilter])
 
   const handleFocusEdge = useCallback((edgeId: string) => {
     visNetworkRef.current?.focusEdge(edgeId)
+  }, [])
+
+  const handleFocusNode = useCallback((nodeId: string) => {
+    visNetworkRef.current?.focusNode(nodeId)
+  }, [])
+
+  const handleFilterChange = useCallback(() => {
+    // Trigger any necessary side effects when filters change
+    // Currently just a placeholder for FilterPanel
   }, [])
 
   // Loading state
@@ -240,7 +242,7 @@ export function GraphExplorerPage() {
         {/* Filter Panel */}
         {showFilters && (
           <div className="w-80 border-r overflow-y-auto flex-shrink-0">
-            <FilterPanel />
+            <FilterPanel onFilterChange={handleFilterChange} />
           </div>
         )}
 
