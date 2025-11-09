@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
@@ -44,12 +46,11 @@ def create_project(project_data: ProjectCreate, db: Session = Depends(get_db)) -
 class ProjectListResponse(BaseModel):
     id: int
     name: str
-    labels: dict | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
+    labels: list[str] | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}
 
 
 @router.get("", response_model=list[ProjectListResponse])
