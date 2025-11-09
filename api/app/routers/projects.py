@@ -12,7 +12,7 @@ from app.schemas import ProjectCreate, ProjectResponse, ProjectUpdate  # type: i
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
 def create_project(project_data: ProjectCreate, db: Session = Depends(get_db)) -> ProjectResponse:  # noqa: B008
     """
     Create a new project.

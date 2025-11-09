@@ -136,7 +136,7 @@ async def create_upload(
         upload.storage_uri = storage_uri
         upload.status = "completed"
         db.commit()
-        
+
         # Create a response dict manually to avoid loading nested relationships
         # This prevents the cyclic reference issue without needing to modify the model
         response = UploadResponse(

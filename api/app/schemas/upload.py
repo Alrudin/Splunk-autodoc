@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    from app.schemas.job import JobResponse
-    from app.schemas.project import ProjectResponse
+    pass
 
 # Upload status enum for type safety
 UploadStatus = Literal["pending", "processing", "completed", "failed"]
