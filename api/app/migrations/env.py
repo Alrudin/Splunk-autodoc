@@ -9,6 +9,11 @@ from app.config import settings
 
 # Import all models to ensure they're registered with Base.metadata
 from app.models.base import Base
+from app.models.finding import Finding
+from app.models.graph import Graph
+from app.models.job import Job
+from app.models.project import Project
+from app.models.upload import Upload
 
 # Alembic Config object
 config = context.config
@@ -21,7 +26,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Override sqlalchemy.url with value from environment variable
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option("sqlalchemy.url", settings.db_url)
 
 
 def run_migrations_offline() -> None:
@@ -36,7 +41,7 @@ def run_migrations_offline() -> None:
     Calls to context.execute() here emit the given string to the
     script output.
     """
-    url = settings.database_url
+    url = settings.db_url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -56,8 +61,8 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
     """
     # Override the sqlalchemy.url in the alembic config
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = settings.database_url
+    configuration = config.get_section(config.config_ini_section) or {}
+    configuration["sqlalchemy.url"] = settings.db_url
 
     connectable = engine_from_config(
         configuration,

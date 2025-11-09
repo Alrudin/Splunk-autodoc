@@ -65,6 +65,14 @@ PROTOCOL_MAPPINGS = {
     "modular_input": ("splunktcp", "modinput"),
 }
 
+# Precedence order for props matching (lower = higher precedence)
+# sourcetype < source < host per Splunk's evaluation order
+PRECEDENCE_ORDER = {
+    "sourcetype": 0,
+    "source": 1,
+    "host": 2,
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -329,9 +337,6 @@ def resolve_output_targets(
     targets = []
 
     for group in output_groups:
-        # OutputGroup doesn't have a disabled field, so skip this check
-        # if group.disabled:
-        #     continue
 
         # Handle indexer discovery
         if group.indexer_discovery:
@@ -401,15 +406,16 @@ def apply_transforms_to_index(
             matching_props.append(("sourcetype", prop))
         # Match by source (with wildcard support - simplified)
         elif prop.stanza_type == "source" and input_stanza.source_path:
-            if prop.stanza_value == input_stanza.source_path or prop.stanza_value.endswith("*"):
+            if prop.stanza_value == input_stanza.source_path:
                 matching_props.append(("source", prop))
+            elif prop.stanza_value.endswith("*"):
+                prefix = prop.stanza_value[:-1]
+                if input_stanza.source_path.startswith(prefix):
+                    matching_props.append(("source", prop))
         # Match by host
         elif prop.stanza_type == "host" and prop.stanza_value == input_stanza.host:
             matching_props.append(("host", prop))
-
-    # Sort by precedence: host < source < sourcetype
-    precedence_order = {"host": 0, "source": 1, "sourcetype": 2}
-    matching_props.sort(key=lambda x: precedence_order.get(x[0], 0))
+    matching_props.sort(key=lambda x: PRECEDENCE_ORDER.get(x[0], 0), reverse=True)
 
     # Apply transforms from matching props
     for _match_type, prop in matching_props:
@@ -479,8 +485,10 @@ def build_edges_from_inputs_outputs(parsed: ParsedConfig, src_host: Host) -> lis
     # Resolve output targets once
     output_targets = resolve_output_targets(parsed.outputs)
 
-    # Check for ambiguous routing (use default_group instead of is_default_group)
-    has_default_group = any(group.default_group for group in parsed.outputs)
+    # Check for ambiguous routing (OutputGroup.default_group is optional, so use getattr)
+    # If OutputGroup always has 'default_group', use direct access: any(group.default_group for
+    # group in parsed.outputs)
+    has_default_group = any(getattr(group, "default_group", False) for group in parsed.outputs)
     is_ambiguous_routing = len(parsed.outputs) > 1 and not has_default_group
 
     for input_stanza in parsed.inputs:
@@ -550,9 +558,9 @@ def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
     """
     Merge edges with same src_host, dst_host, protocol to reduce graph complexity.
 
-    Merging rules:
+    - Use least confident value (prefer "derived" over "explicit"; "derived" is lower confidence)
     - Combine sources, sourcetypes, indexes, filters, drop_rules, app_contexts (deduplicate)
-    - Use most restrictive TLS setting (False if any edge has tls=False)
+    - Use least restrictive TLS setting (False if any edge has tls=False)
     - Sum weights
     - Use lowest confidence ("derived" < "explicit")
 
@@ -628,11 +636,11 @@ def merge_similar_edges(edges: list[Edge]) -> list[Edge]:
 
         # Deduplicate filters while preserving order
         seen_filters = set()
-        merged.filters = [
-            f
-            for f in filters_list
-            if f not in seen_filters and not seen_filters.add(f)  # type: ignore
-        ]
+        merged.filters = []
+        for f in filters_list:
+            if f not in seen_filters:
+                merged.filters.append(f)
+                seen_filters.add(f)
 
         merged.sources = sorted(sources_set)
         merged.sourcetypes = sorted(sourcetypes_set)

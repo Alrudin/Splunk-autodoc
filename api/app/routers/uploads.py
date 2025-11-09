@@ -41,7 +41,7 @@ def validate_file_extension(filename: str) -> bool:
 )
 async def create_upload(
     project_id: int,
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> UploadResponse:
     """
