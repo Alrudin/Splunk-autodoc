@@ -1,5 +1,6 @@
 import { useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react'
 import { Network, Options, Node } from 'vis-network/standalone'
+import { edgeIdFromEdge } from '@/lib/edgeId'
 import type { Host, Edge } from '@/types'
 
 export interface VisNetworkHandle {
@@ -106,28 +107,8 @@ export const VisNetworkCanvas = forwardRef<VisNetworkHandle, VisNetworkCanvasPro
     const map = new Map<string, Edge>()
     const edgeCount = edges.length
     const visEdgeList = edges.map((edge) => {
-      // Generate robust unique edge ID using a hash of distinguishing properties
-      const edgeComponents = [
-        edge.src_host,
-        edge.dst_host,
-        edge.protocol,
-        edge.indexes.slice().sort().join(','),
-        edge.sourcetypes.slice().sort().join(','),
-        String(edge.tls),
-        String(edge.weight),
-      ]
-      // Simple hash function for stable edge IDs
-      function hashString(str: string): string {
-        let hash = 0, i, chr
-        if (str.length === 0) return hash.toString()
-        for (i = 0; i < str.length; i++) {
-          chr = str.charCodeAt(i)
-          hash = ((hash << 5) - hash) + chr
-          hash |= 0 // Convert to 32bit integer
-        }
-        return Math.abs(hash).toString()
-      }
-      const edgeId = hashString(edgeComponents.join('|'))
+      // Generate robust unique edge ID using shared utility
+      const edgeId = edgeIdFromEdge(edge)
 
       // Store edge in map for lookup
       map.set(edgeId, edge)

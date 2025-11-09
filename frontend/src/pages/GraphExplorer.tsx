@@ -13,6 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -20,6 +26,7 @@ import { Filter as FilterIcon, Loader2, Download, FileJson, FileImage, FileText,
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useToast } from '@/hooks/use-toast'
 import { api } from '@/lib/api'
+import { edgeIdFromEdge } from '@/lib/edgeId'
 import type { Edge } from '@/types'
 
 export function GraphExplorerPage() {
@@ -142,58 +149,118 @@ export function GraphExplorerPage() {
     if (location.state?.highlightHosts && Array.isArray(location.state.highlightHosts)) {
       const hosts = location.state.highlightHosts as string[]
 
+      // Early return if edgeMap is not ready yet (race condition prevention)
+      // Keep state so effect re-evaluates when edgeMap becomes available
+      if (!edgeMap) {
+        return
+      }
+
+      let wasHighlighted = false
+
       // If we have src_host and dst_host, try to select the edge
       if (hosts.length >= 2 && hosts[0] && hosts[1]) {
-        // Find edge between these hosts
+        // Find edge between these hosts in filtered edges
         const edge = filteredEdges.find(
           (e) => e.src_host === hosts[0] && e.dst_host === hosts[1]
         )
-        if (edge && edgeMap) {
-          // Generate edge ID (same format as VisNetworkCanvas)
-          const edgeComponents = [
-            edge.src_host,
-            edge.dst_host,
-            edge.protocol,
-            edge.indexes.slice().sort().join(','),
-            edge.sourcetypes.slice().sort().join(','),
-            String(edge.tls),
-            String(edge.weight),
-          ]
-          function hashString(str: string): string {
-            let hash = 0,
-              i,
-              chr
-            if (str.length === 0) return hash.toString()
-            for (i = 0; i < str.length; i++) {
-              chr = str.charCodeAt(i)
-              hash = (hash << 5) - hash + chr
-              hash |= 0
-            }
-            return Math.abs(hash).toString()
-          }
-          const edgeId = hashString(edgeComponents.join('|'))
+        
+        if (edge) {
+          // Edge found in filtered view - highlight it
+          // Generate edge ID using shared utility
+          const edgeId = edgeIdFromEdge(edge)
           setSelectedEdgeId(edgeId)
           // Focus on the edge in the graph
           visNetworkRef.current?.focusEdge(edgeId)
+          wasHighlighted = true
+
+          // Show success toast
+          if (location.state.code) {
+            toast({
+              title: 'Finding highlighted',
+              description: `Showing ${location.state.code} finding in graph`,
+            })
+          }
+        } else {
+          // Edge not found in filtered view - fallback to focusing both nodes
+          // Check if both nodes exist in filtered hosts
+          const srcNodeExists = filteredHosts.some((h) => h.id === hosts[0])
+          const dstNodeExists = filteredHosts.some((h) => h.id === hosts[1])
+
+          if (srcNodeExists && dstNodeExists) {
+            // Both nodes exist - focus on source node and show warning
+            setSelectedNodeId(hosts[0])
+            visNetworkRef.current?.focusNode(hosts[0])
+            wasHighlighted = true
+
+            toast({
+              title: 'Edge hidden by filters',
+              description: `The edge from ${hosts[0]} to ${hosts[1]} is hidden by current filters. Showing source host instead.`,
+              variant: 'default',
+            })
+          } else if (srcNodeExists) {
+            // Only source exists
+            setSelectedNodeId(hosts[0])
+            visNetworkRef.current?.focusNode(hosts[0])
+            wasHighlighted = true
+
+            toast({
+              title: 'Target hidden by filters',
+              description: `${hosts[1]} is hidden by current filters. Showing ${hosts[0]} instead.`,
+              variant: 'default',
+            })
+          } else if (dstNodeExists) {
+            // Only destination exists
+            setSelectedNodeId(hosts[1])
+            visNetworkRef.current?.focusNode(hosts[1])
+            wasHighlighted = true
+
+            toast({
+              title: 'Source hidden by filters',
+              description: `${hosts[0]} is hidden by current filters. Showing ${hosts[1]} instead.`,
+              variant: 'default',
+            })
+          } else {
+            // Neither node exists in filtered view
+            toast({
+              title: 'Finding not visible',
+              description: `Both ${hosts[0]} and ${hosts[1]} are hidden by current filters. Clear filters to view this finding.`,
+              variant: 'destructive',
+            })
+          }
         }
       } else if (hosts.length === 1 && hosts[0]) {
-        // Single host - select the node
-        setSelectedNodeId(hosts[0])
-        visNetworkRef.current?.focusNode(hosts[0])
+        // Single host - select the node if it exists
+        const nodeExists = filteredHosts.some((h) => h.id === hosts[0])
+        
+        if (nodeExists) {
+          setSelectedNodeId(hosts[0])
+          visNetworkRef.current?.focusNode(hosts[0])
+          wasHighlighted = true
+
+          // Show success toast
+          if (location.state.code) {
+            toast({
+              title: 'Finding highlighted',
+              description: `Showing ${location.state.code} finding in graph`,
+            })
+          }
+        } else {
+          // Node hidden by filters
+          toast({
+            title: 'Finding not visible',
+            description: `${hosts[0]} is hidden by current filters. Clear filters to view this finding.`,
+            variant: 'destructive',
+          })
+        }
       }
 
-      // Show toast notification
-      if (location.state.code) {
-        toast({
-          title: 'Finding highlighted',
-          description: `Showing ${location.state.code} finding in graph`,
-        })
+      // Only clear the location state after attempting to highlight
+      // This prevents race conditions where state is cleared before edgeMap is ready
+      if (wasHighlighted || hosts.length === 0) {
+        window.history.replaceState({}, document.title)
       }
-
-      // Clear the location state to prevent re-triggering
-      window.history.replaceState({}, document.title)
     }
-  }, [location.state, filteredEdges, edgeMap, toast])
+  }, [location.state, filteredEdges, filteredHosts, edgeMap, toast])
 
   // Filters are managed by Zustand; no filter change callback needed
 
@@ -239,8 +306,24 @@ export function GraphExplorerPage() {
       setIsExporting(true)
 
       try {
-        // Get export URL from API client
-        const exportUrl = api.exportGraph(Number(graphId), format)
+        // Pass current filters to export the filtered view
+        // Convert filters to GraphQueryParams format
+        const queryParams: {
+          host?: string
+          index?: string
+          protocol?: string
+        } = {}
+        
+        if (filters.host) queryParams.host = filters.host
+        if (filters.index) queryParams.index = filters.index
+        if (filters.protocol) queryParams.protocol = filters.protocol
+
+        // Get export URL from API client with filters
+        const exportUrl = api.exportGraph(
+          Number(graphId),
+          format,
+          Object.keys(queryParams).length > 0 ? queryParams : undefined
+        )
 
         // Create temporary anchor element for download
         const link = document.createElement('a')
@@ -251,10 +334,13 @@ export function GraphExplorerPage() {
         link.click()
         document.body.removeChild(link)
 
-        // Show success toast
+        // Show success toast with filter context
+        const hasFilters = activeFilterCount > 0
         toast({
           title: 'Export started',
-          description: `Downloading graph as ${format.toUpperCase()}`,
+          description: hasFilters
+            ? `Downloading filtered graph (${activeFilterCount} filters active) as ${format.toUpperCase()}`
+            : `Downloading full graph as ${format.toUpperCase()}`,
         })
       } catch (error) {
         // Show error toast
@@ -267,7 +353,7 @@ export function GraphExplorerPage() {
         setIsExporting(false)
       }
     },
-    [graphId, toast]
+    [graphId, filters, activeFilterCount, toast]
   )
 
   // Loading state
@@ -381,18 +467,29 @@ export function GraphExplorerPage() {
                 </SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => handleExport(exportFormat)}
-              disabled={isExporting}
-            >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleExport(exportFormat)}
+                    disabled={isExporting}
+                  >
+                    {isExporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {activeFilterCount > 0
+                    ? `Export filtered view (${activeFilterCount} filters active)`
+                    : 'Export full graph'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </div>

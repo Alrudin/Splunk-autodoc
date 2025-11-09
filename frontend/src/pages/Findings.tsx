@@ -19,8 +19,14 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, AlertTriangle, Info, ExternalLink, X, ArrowLeft, Loader2 } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Info, ExternalLink, X, ArrowLeft, Loader2, HelpCircle } from 'lucide-react'
 import type { Finding } from '@/types'
 
 // Helper function to get Badge variant based on severity
@@ -48,6 +54,40 @@ function getSeverityIcon(severity: string) {
       return <Info className="h-4 w-4" />
     default:
       return <Info className="h-4 w-4" />
+  }
+}
+
+/**
+ * Helper function to render context information with additional details
+ * Returns the main display text and any additional context fields
+ */
+function getContextDisplay(finding: Finding): { display: string; hasExtra: boolean; extra: Record<string, unknown> } {
+  const { src_host, dst_host, host, index, ...rest } = finding.context
+  
+  // Main display
+  let display = 'N/A'
+  if (src_host && dst_host) {
+    display = `${src_host} → ${dst_host}`
+  } else if (host) {
+    display = host
+  }
+
+  // Additional context fields
+  const extra: Record<string, unknown> = {}
+  if (index) {
+    extra.index = index
+  }
+  // Add any other context fields (excluding the standard ones)
+  Object.entries(rest).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      extra[key] = value
+    }
+  })
+
+  return {
+    display,
+    hasExtra: Object.keys(extra).length > 0,
+    extra,
   }
 }
 
@@ -215,42 +255,67 @@ export function FindingsPage() {
       {filteredFindings.length > 0 && (
         <Card>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[120px]">Severity</TableHead>
-                  <TableHead className="w-[200px]">Code</TableHead>
-                  <TableHead>Message</TableHead>
-                  <TableHead className="w-[200px]">Affected</TableHead>
-                  <TableHead className="w-[120px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredFindings.map((finding) => (
-                  <TableRow key={finding.id}>
-                    <TableCell>
-                      <Badge variant={getSeverityVariant(finding.severity)} className="flex items-center gap-1 w-fit">
-                        {getSeverityIcon(finding.severity)}
-                        <span>{finding.severity}</span>
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{finding.code}</TableCell>
-                    <TableCell>{finding.message}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {finding.context.src_host && finding.context.dst_host
-                        ? `${finding.context.src_host} → ${finding.context.dst_host}`
-                        : finding.context.host || 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => handleViewInGraph(finding)}>
-                        <ExternalLink className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                    </TableCell>
+            <TooltipProvider>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[120px]">Severity</TableHead>
+                    <TableHead className="w-[200px]">Code</TableHead>
+                    <TableHead>Message</TableHead>
+                    <TableHead className="w-[200px]">Affected</TableHead>
+                    <TableHead className="w-[120px]">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredFindings.map((finding) => {
+                    const contextInfo = getContextDisplay(finding)
+                    return (
+                      <TableRow key={finding.id}>
+                        <TableCell>
+                          <Badge variant={getSeverityVariant(finding.severity)} className="flex items-center gap-1 w-fit">
+                            {getSeverityIcon(finding.severity)}
+                            <span>{finding.severity}</span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{finding.code}</TableCell>
+                        <TableCell>{finding.message}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <span>{contextInfo.display}</span>
+                            {contextInfo.hasExtra && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-xs">
+                                  <div className="space-y-1">
+                                    <p className="font-semibold text-xs">Additional Context:</p>
+                                    {Object.entries(contextInfo.extra).map(([key, value]) => (
+                                      <div key={key} className="text-xs">
+                                        <span className="font-medium">{key}:</span>{' '}
+                                        <span className="text-muted-foreground">
+                                          {String(value)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" onClick={() => handleViewInGraph(finding)}>
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TooltipProvider>
           </CardContent>
         </Card>
       )}
