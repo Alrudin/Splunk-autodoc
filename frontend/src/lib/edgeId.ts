@@ -5,11 +5,12 @@ import type { Edge } from '@/types'
  */
 function hashString(str: string): string {
   let hash = 0,
-    i,
-    chr
+    index,
+    character
   if (str.length === 0) return hash.toString()
-  for (i = 0; i < str.length; i++) {
+  for (index = 0; index < str.length; index++) {
     chr = str.charCodeAt(i)
+    // (hash << 5) - hash is equivalent to hash * 31; this bit-shifting operation helps distribute bits and reduce collisions, similar to the djb2 hash algorithm
     hash = (hash << 5) - hash + chr
     hash |= 0 // Convert to 32bit integer
   }

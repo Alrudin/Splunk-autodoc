@@ -257,10 +257,10 @@ export function GraphExplorerPage() {
       // Only clear the location state after attempting to highlight
       // This prevents race conditions where state is cleared before edgeMap is ready
       if (wasHighlighted || hosts.length === 0) {
-        window.history.replaceState({}, document.title)
+        navigate(location.pathname, { replace: true, state: {} })
       }
     }
-  }, [location.state, filteredEdges, filteredHosts, edgeMap, toast])
+  }, [location.state, filteredEdges, filteredHosts, edgeMap])
 
   // Filters are managed by Zustand; no filter change callback needed
 
@@ -328,7 +328,7 @@ export function GraphExplorerPage() {
         // Create temporary anchor element for download
         const link = document.createElement('a')
         link.href = exportUrl
-        link.download = `graph-${graphId}.${format}`
+        link.download = `graph-${graphId}-${new Date().toISOString()}.${format}`
         link.target = '_blank'
         document.body.appendChild(link)
         link.click()
@@ -499,7 +499,7 @@ export function GraphExplorerPage() {
         {/* Filter Panel */}
         {showFilters && (
           <div className="w-80 border-r overflow-y-auto flex-shrink-0">
-            <FilterPanel onFilterChange={() => {}} />
+            <FilterPanel />
           </div>
         )}
 
