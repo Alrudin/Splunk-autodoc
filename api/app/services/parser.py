@@ -469,11 +469,11 @@ def parse_outputs_conf(work_dir: Path) -> list[OutputGroup]:
             discovery_name = match.group(1)
             # Extract key indexer discovery settings
             indexer_discovery_map[discovery_name] = {
-                "master_uri": stanza_data.get("master_uri") or stanza_data.get("masterUri"),
-                "pass4SymmKey": stanza_data.get("pass4SymmKey"),
-                "sslCertPath": stanza_data.get("sslCertPath"),
-                "sslPassword": stanza_data.get("sslPassword"),
-                "sslVerifyServerCert": stanza_data.get("sslVerifyServerCert"),
+                "master_uri": stanza_data.get("master_uri") if stanza_data.get("master_uri") is not None else stanza_data.get("masterUri"),
+                "pass4SymmKey": stanza_data.get("pass4SymmKey") if stanza_data.get("pass4SymmKey") is not None else stanza_data.get("pass4symmkey"),
+                "sslCertPath": stanza_data.get("sslCertPath") if stanza_data.get("sslCertPath") is not None else stanza_data.get("sslcertpath"),
+                "sslPassword": stanza_data.get("sslPassword") if stanza_data.get("sslPassword") is not None else stanza_data.get("sslpassword"),
+                "sslVerifyServerCert": stanza_data.get("sslVerifyServerCert") if stanza_data.get("sslVerifyServerCert") is not None else stanza_data.get("sslverifyservercert"),
                 "source_file": stanza_data.get("_source_file", ""),
             }
 
@@ -499,7 +499,7 @@ def parse_outputs_conf(work_dir: Path) -> list[OutputGroup]:
 
             # Determine if SSL/TLS is enabled (any of these settings indicates TLS)
             ssl_enabled = None
-            if any([ssl_cert_path, client_cert, ssl_root_ca_path, use_ssl]):
+            if any((ssl_cert_path, client_cert, ssl_root_ca_path, use_ssl)):
                 ssl_enabled = True
             elif use_ssl is not None:
                 # Explicitly check if useSSL is set to false
@@ -656,7 +656,10 @@ def parse_props_conf(work_dir: Path) -> list[PropsStanza]:
         line_breaker = stanza_data.get("LINE_BREAKER")
         time_format = stanza_data.get("TIME_FORMAT")
         truncate_str = stanza_data.get("TRUNCATE")
-        truncate = int(truncate_str) if truncate_str and truncate_str.isdigit() else None
+        try:
+            truncate = int(truncate_str) if truncate_str is not None else None
+        except (ValueError, TypeError):
+            truncate = None
 
         # Extract source file and app metadata
         source_file = stanza_data.get("_source_file", "")
@@ -741,15 +744,19 @@ def parse_transforms_conf(work_dir: Path) -> list[TransformStanza]:
 
         if dest_key:
             dest_key_lower = dest_key.lower()
-            # Check for nullQueue drop
-            if "queue" in dest_key_lower and format_str and format_str.lower() == "nullqueue":
+            # Check for nullQueue drop (exact match for 'queue' or '_tcp_routing')
+            if (
+                dest_key_lower in ("queue", "_tcp_routing")
+                and format_str
+                and format_str.lower() == "nullqueue"
+            ):
                 is_drop = True
-            # Check for metadata rewrites
-            elif dest_key == "_MetaData:Index":
+            # Check for metadata rewrites (case-insensitive)
+            elif dest_key_lower == "_metadata:index":
                 is_index_routing = True
-            elif dest_key == "_MetaData:Sourcetype":
+            elif dest_key_lower == "_metadata:sourcetype":
                 is_sourcetype_rewrite = True
-            elif dest_key == "_MetaData:Host":
+            elif dest_key_lower == "_metadata:host":
                 is_host_rewrite = True
 
         # Extract source file and app metadata
