@@ -354,7 +354,7 @@ def detect_dangling_outputs(
             }
             findings.append(finding)
 
-    logger.debug(f"Detected {len(findings)} DANGLING_OUTPUT findings")
+    logger.debug(f"Found {len(findings)} DANGLING_OUTPUT findings")
     return findings
 
 
@@ -426,7 +426,7 @@ def detect_unknown_indexes(
                 }
                 findings.append(finding)
 
-    logger.debug(f"Detected {len(findings)} UNKNOWN_INDEX findings")
+    logger.debug(f"Found {len(findings)} UNKNOWN_INDEX findings")
     return findings
 
 
@@ -457,7 +457,7 @@ def detect_unsecured_pipes(
         ...     {"src_host": "h1", "dst_host": "h2", "protocol": "splunktcp", "tls": False},
         ...     {"src_host": "h1", "dst_host": "h3", "protocol": "splunktcp", "tls": True},
         ... ]
-        >>> findings = detect_unsecured_pipes(edges, {})
+        >>> findings = detect_unsecured_pipes(edges, {}, set())
         >>> len(findings)
         1
         >>> findings[0]["context"]["protocol"]
@@ -506,7 +506,7 @@ def detect_unsecured_pipes(
                 }
                 findings.append(finding)
 
-    logger.debug(f"Detected {len(findings)} UNSECURED_PIPE findings")
+    logger.debug(f"Found {len(findings)} UNSECURED_PIPE findings")
     return findings
 
 
@@ -584,7 +584,7 @@ def detect_drop_paths(
             }
             findings.append(finding)
 
-    logger.debug(f"Detected {len(findings)} DROP_PATH findings")
+    logger.debug(f"Found {len(findings)} DROP_PATH findings")
     return findings
 
 
@@ -649,7 +649,7 @@ def detect_ambiguous_groups(
             }
             findings.append(finding)
 
-    logger.debug(f"Detected {len(findings)} AMBIGUOUS_GROUP findings")
+    logger.debug(f"Found {len(findings)} AMBIGUOUS_GROUP findings")
     return findings
 
 
@@ -880,7 +880,10 @@ def validate_and_store_findings(graph_id: int, db_session: Session) -> list[Find
     # Wrap deletion and creation in single transactional block
     try:
         # Delete existing findings for this graph (re-validation scenario)
-        # Use synchronize_session=False to avoid stale session issues
+        # Use synchronize_session=False to prevent SQLAlchemy from attempting to
+        # update the session state after bulk deletion. This avoids unnecessary
+        # overhead and potential stale session issues, since we immediately add
+        # new findings after deletion.
         deleted_count = (
             db_session.query(Finding)
             .filter(Finding.graph_id == graph_id)
