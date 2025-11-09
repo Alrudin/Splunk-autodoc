@@ -6,10 +6,9 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.config import settings
-from app.models.base import Base
 
 # Import all models to ensure they're registered with Base.metadata
-from app.models import Finding, Graph, Job, Project, Upload
+from app.models.base import Base
 
 # Alembic Config object
 config = context.config

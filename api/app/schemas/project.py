@@ -38,9 +38,7 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     """Schema for updating a project."""
 
-    name: str | None = Field(
-        None, min_length=1, max_length=255, description="Updated project name"
-    )
+    name: str | None = Field(None, min_length=1, max_length=255, description="Updated project name")
     labels: list[str] | None = Field(None, description="Updated labels list")
 
 
