@@ -54,7 +54,7 @@ export function useJobPolling(initialJobId?: number): UseJobPollingReturn {
     }
   }
 
-  const startPolling = (id: number) => {
+  const startPolling = useCallback((id: number) => {
     // Stop any existing polling
     stopPolling()
     
@@ -69,14 +69,14 @@ export function useJobPolling(initialJobId?: number): UseJobPollingReturn {
     intervalRef.current = setInterval(() => {
       fetchJob(id)
     }, POLL_INTERVAL)
-  }
+  }, [stopPolling, setIsPolling, setError, fetchJob])
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopPolling()
     }
-  }, []) // Explicit empty dependency array for cleanup
+  }, [])
 
   // Track last polled jobId to avoid unnecessary restarts
   const lastPolledJobIdRef = useRef<number | undefined>(undefined)
@@ -90,7 +90,7 @@ export function useJobPolling(initialJobId?: number): UseJobPollingReturn {
       startPolling(initialJobId)
       lastPolledJobIdRef.current = initialJobId
     }
-  }, [initialJobId])
+  }, [initialJobId, startPolling])
 
   return {
     job,

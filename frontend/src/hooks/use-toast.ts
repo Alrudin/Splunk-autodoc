@@ -8,6 +8,8 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
+// UX decision: Only one toast is shown at a time to avoid overwhelming users with multiple notifications.
+// This ensures that the most recent message is always visible and prevents stacking toasts.
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 5000
 

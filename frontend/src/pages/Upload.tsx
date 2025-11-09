@@ -27,6 +27,8 @@ import {
 } from 'lucide-react'
 import type { Upload, Job } from '@/types'
 
+const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 * 1024 // 2GB
+
 export function UploadPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -55,11 +57,10 @@ export function UploadPage() {
       return false
     }
 
-    const maxSize = 2 * 1024 * 1024 * 1024 // 2GB
-    if (file.size > maxSize) {
+    if (file.size > MAX_FILE_SIZE_BYTES) {
       toast({
         title: 'File too large',
-        description: 'Maximum file size is 2GB',
+        description: `Maximum file size is ${formatFileSize(MAX_FILE_SIZE_BYTES)}`,
         variant: 'destructive',
       })
       return false
@@ -210,7 +211,7 @@ export function UploadPage() {
         description: 'Graph generated successfully',
       })
       // Fetch the graph for this job
-      const fetchGraphForJob = async () => {
+      const fetchGraph = async () => {
         if (currentProject) {
           try {
             const graphs = await api.getProjectGraphs(currentProject.id)
@@ -229,7 +230,7 @@ export function UploadPage() {
           }
         }
       }
-      fetchGraphForJob()
+      fetchGraph()
     } else if (job?.status === 'failed') {
       toast({
         title: 'Job failed',
@@ -237,7 +238,7 @@ export function UploadPage() {
         variant: 'destructive',
       })
     }
-  }, [job?.status, job?.id, currentProject])
+  }, [job?.status, job?.id, currentProject, toast])
 
   if (!currentProject) {
     return (
@@ -317,7 +318,7 @@ export function UploadPage() {
             <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
             <div className="text-xs text-muted-foreground space-y-1">
               <p>Supported formats: .zip, .tar.gz, .tar, .tgz</p>
-              <p>Maximum file size: 2GB</p>
+              <p>Maximum file size: {formatFileSize(MAX_FILE_SIZE_BYTES)}</p>
             </div>
           </div>
 
