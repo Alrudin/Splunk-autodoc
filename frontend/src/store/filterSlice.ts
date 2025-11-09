@@ -7,6 +7,8 @@ export interface GraphFilters {
   role?: string
   tls?: boolean
   severity?: 'error' | 'warning' | 'info'
+  app?: string
+  sourcetype?: string
 }
 
 export interface FilterSlice {
