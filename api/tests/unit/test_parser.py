@@ -175,31 +175,25 @@ interval = 60
         assert script_input is not None
         assert script_input.source_path == "./bin/script.sh"
 
-    def test_parse_disabled_input(self, tmp_path: Path):
+    @pytest.mark.parametrize(
+        "bool_value",
+        ["1", "true", "yes"],
+        ids=["value_1", "value_true", "value_yes"],
+    )
+    def test_parse_disabled_input(self, tmp_path: Path, bool_value: str):
         """Parse input with disabled=1/true/yes, verify disabled=True flag."""
         from tests.fixtures.splunk_configs import write_conf_file
 
-        inputs_content = """[monitor:///var/log/disabled1.log]
+        inputs_content = f"""[monitor:///var/log/test.log]
 sourcetype = test
 index = main
-disabled = 1
-
-[monitor:///var/log/disabled_true.log]
-sourcetype = test
-index = main
-disabled = true
-
-[monitor:///var/log/disabled_yes.log]
-sourcetype = test
-index = main
-disabled = yes
+disabled = {bool_value}
 """
         write_conf_file(tmp_path / "system/local/inputs.conf", inputs_content)
 
         inputs = parse_inputs_conf(tmp_path)
-        assert len(inputs) == 3
-        # All three inputs should have disabled = True
-        assert all(inp.disabled is True for inp in inputs)
+        assert len(inputs) == 1
+        assert inputs[0].disabled is True
 
 
 @pytest.mark.unit
@@ -267,30 +261,79 @@ class TestOutputsConfParsing:
         assert hf_group is not None
         assert hf_group.compressed is True
 
-    def test_parse_useack_boolean_values(self, tmp_path: Path):
+    @pytest.mark.parametrize(
+        "bool_value",
+        ["1", "true", "yes"],
+        ids=["value_1", "value_true", "value_yes"],
+    )
+    def test_parse_useack_boolean_values(self, tmp_path: Path, bool_value: str):
         """Parse useACK with multiple boolean representations (1/true/yes)."""
         from tests.fixtures.splunk_configs import write_conf_file
 
-        outputs_content = """[tcpout:ack_group_1]
+        outputs_content = f"""[tcpout:test_group]
 server = idx01.example.com:9997
-useACK = 1
-
-[tcpout:ack_group_true]
-server = idx02.example.com:9997
-useACK = true
-
-[tcpout:ack_group_yes]
-server = idx03.example.com:9997
-useACK = yes
+useACK = {bool_value}
 """
         write_conf_file(tmp_path / "system/local/outputs.conf", outputs_content)
 
         outputs = parse_outputs_conf(tmp_path)
-        assert len(outputs) == 3
+        assert len(outputs) == 1
+        assert outputs[0].use_ack is True
 
-        # All three groups should have use_ack = True
-        for output_group in outputs:
-            assert output_group.use_ack is True
+    def test_parse_usessl_false(self, tmp_path: Path):
+        """Parse useSSL=false, verify ssl_enabled is False."""
+        from tests.fixtures.splunk_configs import write_conf_file
+
+        outputs_content = """[tcpout:test_group]
+server = idx01.example.com:9997
+useSSL = false
+"""
+        write_conf_file(tmp_path / "system/local/outputs.conf", outputs_content)
+
+        outputs = parse_outputs_conf(tmp_path)
+        assert len(outputs) == 1
+
+        # Verify ssl_enabled is False, not True
+        test_group = outputs[0]
+        assert test_group.group_name == "test_group"
+        assert test_group.ssl_enabled is False
+
+    def test_parse_tcpout_server_overrides(self, tmp_path: Path):
+        """Parse tcpout-server per-server overrides, verify per_server_options."""
+        from tests.fixtures.splunk_configs import write_conf_file
+
+        outputs_content = """[tcpout:grp]
+server = host1:9997,host2:9997
+
+[tcpout-server://host1:9997]
+sslCertPath = /path/to/host1/cert.pem
+compressed = true
+
+[tcpout-server://host2:9997]
+sslCertPath = /path/to/host2/cert.pem
+compressed = false
+"""
+        write_conf_file(tmp_path / "system/local/outputs.conf", outputs_content)
+
+        outputs = parse_outputs_conf(tmp_path)
+        assert len(outputs) == 1
+
+        grp = outputs[0]
+        assert grp.group_name == "grp"
+        assert grp.servers == ["host1:9997", "host2:9997"]
+        assert "per_server_options" in grp.options
+
+        per_server_opts = grp.options["per_server_options"]
+        assert "host1:9997" in per_server_opts
+        assert "host2:9997" in per_server_opts
+
+        # Verify host1 settings
+        assert per_server_opts["host1:9997"]["sslCertPath"] == "/path/to/host1/cert.pem"
+        assert per_server_opts["host1:9997"]["compressed"] == "true"
+
+        # Verify host2 settings
+        assert per_server_opts["host2:9997"]["sslCertPath"] == "/path/to/host2/cert.pem"
+        assert per_server_opts["host2:9997"]["compressed"] == "false"
 
 
 @pytest.mark.unit
