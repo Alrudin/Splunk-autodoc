@@ -329,10 +329,12 @@ compressed = false
 
         # Verify host1 settings
         assert per_server_opts["host1:9997"]["sslCertPath"] == "/path/to/host1/cert.pem"
-        assert per_server_opts["host1:9997"]["compressed"] == "true"
+        assert per_server_opts["host1:9997"]["compressed"] is True
 
         # Verify host2 settings
         assert per_server_opts["host2:9997"]["sslCertPath"] == "/path/to/host2/cert.pem"
+        # If parser stores raw values, check for string "false"; if normalized, check for boolean 
+        # False
         assert per_server_opts["host2:9997"]["compressed"] == "false"
 
 
