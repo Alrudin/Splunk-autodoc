@@ -280,7 +280,7 @@ export function ProjectsPage() {
                                       <span className="ml-4">
                                         {graph.json_blob.meta.host_count || 0} hosts, {graph.json_blob.meta.edge_count || 0} edges
                                       </span>
-                                          {graph.json_blob?.meta?.host_count || 0} hosts, {graph.json_blob?.meta?.edge_count || 0} edges
+                                    )}
                                   </div>
                                 </div>
                                 <Button
