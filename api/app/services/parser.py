@@ -348,9 +348,9 @@ def parse_inputs_conf(work_dir: Path) -> list[InputStanza]:
 
     # Regex patterns for input type extraction
     monitor_pattern = re.compile(r"^monitor://(.+)$")
-    tcp_pattern = re.compile(r"^tcp://(?:[^:]+:)?(\d+)$")
-    udp_pattern = re.compile(r"^udp://(?:[^:]+:)?(\d+)$")
-    splunktcp_pattern = re.compile(r"^splunktcp://(?:[^:]+:)?(\d+)$")
+    tcp_pattern = re.compile(r"^tcp://(?:[^:]*:)?(\d+)$")
+    udp_pattern = re.compile(r"^udp://(?:[^:]*:)?(\d+)$")
+    splunktcp_pattern = re.compile(r"^splunktcp://(?:[^:]*:)?(\d+)$")
     http_pattern = re.compile(r"^http(?:://(.+))?$")
     script_pattern = re.compile(r"^script://(.+)$")
     wineventlog_pattern = re.compile(r"^WinEventLog://(.+)$", re.IGNORECASE)
