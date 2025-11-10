@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/projects/{project_id}/graphs", response_model=list[GraphResponse])
-def list_graphs(project_id: int, db: Session = Depends(get_db)) -> list[Graph]:  # noqa: B008
+def list_graphs(project_id: int, db: Session = Depends(get_db)) -> list[GraphResponse]:  # noqa: B008
     """
     List all graphs for a project.
 
@@ -51,7 +51,7 @@ def list_graphs(project_id: int, db: Session = Depends(get_db)) -> list[Graph]: 
         db: Database session
 
     Returns:
-        List of Graph instances
+        List of GraphResponse instances
 
     Raises:
         HTTPException: 404 if project not found
@@ -72,11 +72,29 @@ def list_graphs(project_id: int, db: Session = Depends(get_db)) -> list[Graph]: 
         .all()
     )
 
-    return graphs
+    # Manually construct responses to avoid circular references
+    responses = []
+    for graph in graphs:
+        responses.append(
+            GraphResponse(
+                id=graph.id,
+                project_id=graph.project_id,
+                job_id=graph.job_id,
+                version=graph.version,
+                json_blob=graph.json_blob,
+                meta=graph.meta,
+                created_at=graph.created_at,
+                project=None,
+                job=None,
+                findings=None,
+            )
+        )
+
+    return responses
 
 
 @router.get("/graphs/{graph_id}", response_model=GraphResponse)
-def get_graph(graph_id: int, db: Session = Depends(get_db)) -> Graph:  # noqa: B008
+def get_graph(graph_id: int, db: Session = Depends(get_db)) -> GraphResponse:  # noqa: B008
     """
     Get a single graph by ID.
 
@@ -88,7 +106,7 @@ def get_graph(graph_id: int, db: Session = Depends(get_db)) -> Graph:  # noqa: B
         db: Database session
 
     Returns:
-        Graph instance with json_blob
+        GraphResponse instance
 
     Raises:
         HTTPException: 404 if graph not found
@@ -100,7 +118,21 @@ def get_graph(graph_id: int, db: Session = Depends(get_db)) -> Graph:  # noqa: B
             detail=f"Graph {graph_id} not found",
         )
 
-    return graph
+    # Manually construct response to avoid circular references
+    response = GraphResponse(
+        id=graph.id,
+        project_id=graph.project_id,
+        job_id=graph.job_id,
+        version=graph.version,
+        json_blob=graph.json_blob,
+        meta=graph.meta,
+        created_at=graph.created_at,
+        project=None,  # Omit to avoid circular reference
+        job=None,  # Omit to avoid circular reference
+        findings=None,  # Omit for performance (use separate endpoint)
+    )
+
+    return response
 
 
 @router.get("/graphs/{graph_id}/findings", response_model=list[FindingResponse])

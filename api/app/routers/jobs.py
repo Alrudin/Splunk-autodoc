@@ -1,3 +1,5 @@
+from typing import cast
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -5,6 +7,7 @@ from app.database import get_db  # type: ignore
 from app.models.job import Job  # type: ignore
 from app.models.upload import Upload  # type: ignore
 from app.schemas import JobResponse  # type: ignore
+from app.services.processor import process_job_sync  # type: ignore
 
 router = APIRouter(tags=["jobs"])
 
@@ -55,16 +58,20 @@ def create_job(upload_id: int, db: Session = Depends(get_db)) -> JobResponse:  #
         db.commit()
         db.refresh(job)
 
-        # Note: Actual job execution will be implemented in parser and resolver services
-        # Future implementation will:
-        # - Trigger background worker (or inline processing for MVP)
-        # - Update job status to "running", set started_at=func.now()
-        # - Execute parser service on uploaded files
-        # - Execute resolver service to build graph
-        # - Update job status to "completed" or "failed", set finished_at=func.now()
-        # - Populate log field with execution details
-
+        # Process job synchronously (MVP approach)
+        # For production, consider using background worker (Redis + RQ/Celery)
+        try:
+            process_job_sync(job.id, db)
+            db.refresh(job)  # Refresh to get updated status and logs
+        except Exception as ex:
+            # Job processor already marks job as failed and logs error
+            # Log the exception for debugging purposes
+            import logging
+            logging.exception("Error during job processing or refresh")
+        # Return ORM model instance directly; Pydantic schema handles serialization and avoids cycles
         return job
+
+        return response
     except Exception as e:
         db.rollback()
         raise HTTPException(  # noqa: B904
