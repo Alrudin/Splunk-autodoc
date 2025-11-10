@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProjects } from '@/hooks/useProjects'
 import { useStore } from '@/store'
+import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,8 +25,8 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Trash2, FolderOpen, Loader2 } from 'lucide-react'
-import type { CreateProject, Project } from '@/types'
+import { Plus, Trash2, FolderOpen, Loader2, Network, ExternalLink } from 'lucide-react'
+import type { CreateProject, Project, Graph } from '@/types'
 
 export function ProjectsPage() {
   const navigate = useNavigate()
@@ -39,6 +40,9 @@ export function ProjectsPage() {
   const [projectLabels, setProjectLabels] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [expandedProjectId, setExpandedProjectId] = useState<number | null>(null)
+  const [projectGraphs, setProjectGraphs] = useState<Record<number, Graph[]>>({})
+  const [loadingGraphs, setLoadingGraphs] = useState<Record<number, boolean>>({})
 
   const handleCreateProject = async () => {
     if (!projectName.trim()) {
@@ -114,6 +118,34 @@ export function ProjectsPage() {
     navigate('/upload')
   }
 
+  const handleViewGraphs = async (projectId: number) => {
+    // Toggle expansion
+    if (expandedProjectId === projectId) {
+      setExpandedProjectId(null)
+      return
+    }
+
+    setExpandedProjectId(projectId)
+
+    // Load graphs if not already loaded
+    if (!projectGraphs[projectId]) {
+      setLoadingGraphs((prev) => ({ ...prev, [projectId]: true }))
+      try {
+        const graphs = await api.getProjectGraphs(projectId)
+        setProjectGraphs((prev) => ({ ...prev, [projectId]: graphs || [] }))
+      } catch (error) {
+        toast({
+          title: 'Error loading graphs',
+          description: error instanceof Error ? error.message : 'Failed to load graphs',
+          variant: 'destructive',
+        })
+        setProjectGraphs((prev) => ({ ...prev, [projectId]: [] }))
+      } finally {
+        setLoadingGraphs((prev) => ({ ...prev, [projectId]: false }))
+      }
+    }
+  }
+
   const openDeleteDialog = (projectId: number) => {
     setSelectedProjectId(projectId)
     setIsDeleteDialogOpen(true)
@@ -169,42 +201,112 @@ export function ProjectsPage() {
             </TableHeader>
             <TableBody>
               {projects.map((project) => (
-                <TableRow key={project.id}>
-                  <TableCell className="font-medium">{project.name}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {project.labels && project.labels.length > 0 ? (
-                        project.labels.map((label, index) => (
-                          <Badge key={index} variant="secondary">
-                            {label}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground text-sm">No labels</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatDate(project.created_at)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewProject(project)}
-                      >
-                        <FolderOpen className="mr-2 h-4 w-4" />
-                        View
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => openDeleteDialog(project.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <>
+                  <TableRow key={project.id}>
+                    <TableCell className="font-medium">{project.name}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {project.labels && project.labels.length > 0 ? (
+                          project.labels.map((label, index) => (
+                            <Badge key={index} variant="secondary">
+                              {label}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground text-sm">No labels</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>{formatDate(project.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewGraphs(project.id)}
+                        >
+                          <Network className="mr-2 h-4 w-4" />
+                          {expandedProjectId === project.id ? 'Hide' : 'View'} Graphs
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewProject(project)}
+                        >
+                          <FolderOpen className="mr-2 h-4 w-4" />
+                          Upload
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => openDeleteDialog(project.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Expanded row showing graphs */}
+                  {expandedProjectId === project.id && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="bg-muted/50">
+                        <div className="py-4 px-2">
+                          <h4 className="font-semibold mb-3 flex items-center gap-2">
+                            <Network className="h-4 w-4" />
+                            Graphs for {project.name}
+                          </h4>
+                          
+                          {loadingGraphs[project.id] ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Loading graphs...
+                            </div>
+                          ) : projectGraphs[project.id] && projectGraphs[project.id].length > 0 ? (
+                            <div className="space-y-2">
+                              {projectGraphs[project.id].map((graph) => (
+                                <div
+                                  key={graph.id}
+                                  className="flex items-center justify-between p-3 bg-background rounded-md border"
+                                >
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">Graph #{graph.id}</span>
+                                      <Badge variant="outline" className="text-xs">
+                                        v{graph.version}
+                                      </Badge>
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      Created: {formatDate(graph.created_at)}
+                                      {graph.json_blob?.meta && (
+                                        <span className="ml-4">
+                                          {graph.json_blob.meta.host_count || 0} hosts, {graph.json_blob.meta.edge_count || 0} edges
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => navigate(`/graphs/${graph.id}`)}
+                                  >
+                                    <ExternalLink className="mr-2 h-3 w-3" />
+                                    View
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <Alert>
+                              <AlertDescription>
+                                No graphs yet. Upload a configuration file to generate a graph.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
               ))}
             </TableBody>
           </Table>

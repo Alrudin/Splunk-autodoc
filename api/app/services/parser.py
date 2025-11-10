@@ -823,7 +823,7 @@ def parse_transforms_conf(work_dir: Path) -> list[TransformStanza]:
     return transforms
 
 
-def parse_splunk_config(job_id: int) -> ParsedConfig:
+def parse_splunk_config(job_id: int, work_dir: Path | None = None) -> ParsedConfig:
     """Parse all Splunk configuration files for a job and return merged configurations.
 
     Main entry point for configuration parsing. Applies precedence rules across all
@@ -831,6 +831,8 @@ def parse_splunk_config(job_id: int) -> ParsedConfig:
 
     Args:
         job_id: Job ID to parse configurations for.
+        work_dir: Optional work directory path. If not provided, will use
+            get_work_directory(job_id).
 
     Returns:
         ParsedConfig containing all inputs, outputs, props, transforms with metadata.
@@ -841,8 +843,9 @@ def parse_splunk_config(job_id: int) -> ParsedConfig:
     """
     logger.info(f"Starting Splunk configuration parsing for job_id={job_id}")
 
-    # Get work directory from storage service
-    work_dir = get_work_directory(job_id)
+    # Get work directory from storage service or use provided one
+    if work_dir is None:
+        work_dir = get_work_directory(job_id)
     if not work_dir.exists():
         raise FileNotFoundError(f"Work directory not found: {work_dir}")
 
