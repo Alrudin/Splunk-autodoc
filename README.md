@@ -336,21 +336,149 @@ alembic upgrade head
 - **Python**: Formatted with `ruff` (configured in `pyproject.toml`)
 - **TypeScript**: ESLint with TypeScript rules (configured in `frontend/`)
 
-### Testing
+## Testing
 
-**Backend:**
+Comprehensive testing infrastructure covering backend services, API endpoints, frontend components, and end-to-end workflows.
+
+### Backend Tests (Python/pytest)
+
+**Run all tests:**
 
 ```bash
 cd api
-pytest
+python -m pytest
 ```
 
-**Frontend:**
+**Run with coverage:**
+
+```bash
+python -m pytest --cov=app --cov-report=html
+```
+
+**Run specific test categories:**
+
+```bash
+pytest -m unit              # Unit tests only
+pytest -m integration       # Integration tests only
+pytest -m "not slow"        # Skip slow tests
+```
+
+**Test structure:**
+
+- `tests/unit/` - Unit tests for services (parser, resolver, validator, storage, export)
+- `tests/integration/` - Integration tests for API endpoints
+- `tests/fixtures/` - Golden Splunk configuration samples and test utilities
+
+**Golden fixtures:**
+
+The `tests/fixtures/splunk_configs.py` module provides realistic Splunk configuration samples:
+
+- **UF config**: Universal Forwarder with monitor inputs
+- **HF config**: Heavy Forwarder with props/transforms
+- **Indexer config**: Indexer with splunktcp input
+- **HEC config**: HTTP Event Collector
+- **Indexer discovery config**: Indexer discovery placeholder scenario
+- **Dangling output config**: Configuration with no outputs
+- **Ambiguous routing config**: Multiple groups, no default
+- **Precedence test config**: All layers for testing precedence rules
+
+### Frontend Tests (TypeScript/Vitest)
+
+**Run all tests:**
 
 ```bash
 cd frontend
-npm test
+npm run test
 ```
+
+**Run with UI:**
+
+```bash
+npm run test:ui
+```
+
+**Run with coverage:**
+
+```bash
+npm run test:coverage
+```
+
+**Test structure:**
+
+- `src/hooks/__tests__/` - Hook tests (useProjects, useUpload, useJobPolling, useGraph)
+- `src/components/__tests__/` - Component tests (FilterPanel, NodeInspector, EdgeInspector)
+- `src/pages/__tests__/` - Page tests (Projects, Upload, GraphExplorer, Findings)
+- `src/test/` - Test utilities and MSW mocks
+
+**API mocking:**
+
+Tests use MSW (Mock Service Worker) to mock backend API responses. Mock handlers are defined in `src/test/mocks/handlers.ts`.
+
+### E2E Tests (Playwright)
+
+**Run E2E tests:**
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+**Run with UI:**
+
+```bash
+npm run test:e2e:ui
+```
+
+**Test structure:**
+
+- `e2e/upload-flow.spec.ts` - Complete upload → graph → export flow
+- Tests run against real frontend (auto-started by Playwright)
+- Backend can be mocked or run via docker-compose
+
+**Prerequisites:**
+
+Install Playwright browsers on first run:
+
+```bash
+npx playwright install --with-deps
+```
+
+### CI/CD Integration
+
+Tests are automatically run in CI/CD pipelines. See `.github/workflows/test.yml` for configuration.
+
+**Example GitHub Actions workflow:**
+
+```yaml
+- name: Run backend tests
+  run: |
+    cd api
+    python -m pytest --cov=app --cov-report=xml
+
+- name: Run frontend tests
+  run: |
+    cd frontend
+    npm run test:run
+    npm run test:e2e
+```
+
+**System dependencies for exports (optional):**
+
+For testing export functionality with actual graph rendering (not mocked), install Graphviz:
+
+```bash
+# Ubuntu/Debian
+apt-get install graphviz
+
+# macOS
+brew install graphviz
+
+# Or use Docker for isolated testing
+docker run -v $(pwd):/app python:3.11 bash -c "apt-get update && apt-get install -y graphviz && cd /app/api && pytest"
+```
+
+**Note**: Without Graphviz, PNG/PDF export tests will use mocked implementations. JSON and DOT exports work without system dependencies.
+
 
 ### Linting
 
