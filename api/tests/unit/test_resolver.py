@@ -334,7 +334,7 @@ class TestTransformsEvaluation:
         )
 
         assert len(drop_rules) > 0
-        assert any("drop_debug" in rule for rule in drop_rules)
+        assert any("DEBUG" in rule for rule in drop_rules)
 
     def test_apply_transforms_sourcetype_rewrite(self):
         """Verify sourcetype rewrite and re-evaluation."""
@@ -437,6 +437,11 @@ class TestTransformsEvaluation:
         assert "host_index" not in indexes
         assert "source_index" not in indexes
 
+        # All transforms should be present in filters for traceability
+        assert any("transform_host" in f for f in filters)
+        assert any("transform_source" in f for f in filters)
+        assert any("transform_sourcetype" in f for f in filters)
+
     def test_apply_transforms_multiple(self):
         """Verify multiple transforms applied in order."""
         input_stanza = InputStanza(
@@ -475,6 +480,8 @@ class TestTransformsEvaluation:
         )
 
         # Both transforms should be evaluated
+        assert "errors" in indexes
+        assert "warnings" in indexes
         assert len(filters) >= 2
 
     def test_apply_transforms_default_index(self):
@@ -746,7 +753,7 @@ class TestGraphMetadata:
     """Test graph metadata construction."""
 
     def test_build_graph_metadata_counts(self, tmp_path: Path):
-        """Verify host_count, edge_count are correct."""
+        """Verify host_count, edge_count are correct, including cycles."""
         config_dir = create_uf_config(tmp_path)
         parsed = parse_splunk_config(job_id=1, work_dir=config_dir)
 
@@ -763,6 +770,15 @@ class TestGraphMetadata:
 
         assert meta.host_count == 3
         assert meta.edge_count == 5
+
+        # Assert that cycles are present and counted correctly
+        cyclic_edges = [
+            (e.src_host, e.dst_host)
+            for e in edges
+            if (e.dst_host, e.src_host) in [(edge.src_host, edge.dst_host) for edge in edges]
+        ]
+        # There should be bidirectional connections (cycles) between hosts
+        assert len(cyclic_edges) >= 2
 
     def test_build_graph_metadata_generator(self, tmp_path: Path):
         """Verify generator and version fields."""
