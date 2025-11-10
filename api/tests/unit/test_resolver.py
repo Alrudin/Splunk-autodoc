@@ -155,6 +155,18 @@ class TestProtocolDetermination:
         assert protocol == "tcp"
         assert path_kind == "syslog"
 
+    def test_determine_protocol_udp(self):
+        """Verify udp:// → udp/syslog protocol."""
+        input_stanza = InputStanza(
+            stanza_name="udp://:514",
+            input_type="udp",
+            port=514,
+        )
+
+        protocol, path_kind = determine_protocol_and_path_kind(input_stanza)
+        assert protocol == "udp"
+        assert path_kind == "syslog"
+
     def test_determine_protocol_splunktcp(self):
         """Verify splunktcp:// → splunktcp/forwarding protocol."""
         input_stanza = InputStanza(
@@ -388,6 +400,23 @@ class TestTransformsEvaluation:
             transforms=["transform_sourcetype"],
         )
 
+        # Create transforms for all three levels
+        transform_host = TransformStanza(
+            stanza_name="transform_host",
+            regex=".",
+            dest_key="_MetaData:Index",
+            format="host_index",
+            is_index_routing=True,
+        )
+
+        transform_source = TransformStanza(
+            stanza_name="transform_source",
+            regex=".",
+            dest_key="_MetaData:Index",
+            format="source_index",
+            is_index_routing=True,
+        )
+
         # Sourcetype level should take precedence
         transform_st = TransformStanza(
             stanza_name="transform_sourcetype",
@@ -398,10 +427,15 @@ class TestTransformsEvaluation:
         )
 
         indexes, filters, drop_rules = apply_transforms_to_index(
-            input_stanza, [props_host, props_source, props_sourcetype], [transform_st]
+            input_stanza,
+            [props_host, props_source, props_sourcetype],
+            [transform_host, transform_source, transform_st],
         )
 
-        assert "st_index" in indexes
+        # Only sourcetype-level transform should be applied due to precedence
+        assert indexes == ["st_index"]
+        assert "host_index" not in indexes
+        assert "source_index" not in indexes
 
     def test_apply_transforms_multiple(self):
         """Verify multiple transforms applied in order."""
