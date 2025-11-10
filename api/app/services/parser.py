@@ -512,16 +512,22 @@ def parse_outputs_conf(work_dir: Path) -> list[OutputGroup]:
             ssl_cert_path = stanza_data.get("sslCertPath")
             client_cert = stanza_data.get("clientCert")
             ssl_root_ca_path = stanza_data.get("sslRootCAPath")
-            use_ssl = stanza_data.get("useSSL")
+            use_ssl_str = stanza_data.get("useSSL")
             ssl_verify_server_cert = stanza_data.get("sslVerifyServerCert")
 
-            # Determine if SSL/TLS is enabled (any of these settings indicates TLS)
+            # Normalize useSSL to boolean
+            use_ssl_bool = None
+            if use_ssl_str is not None:
+                use_ssl_bool = use_ssl_str.lower() in ("1", "true", "yes")
+
+            # Determine if SSL/TLS is enabled
             ssl_enabled = None
-            if any((ssl_cert_path, client_cert, ssl_root_ca_path, use_ssl)):
+            if any((ssl_cert_path, client_cert, ssl_root_ca_path)):
                 ssl_enabled = True
-            elif use_ssl is not None:
-                # Explicitly check if useSSL is set to false
-                ssl_enabled = use_ssl.lower() in ("1", "true", "yes")
+            elif use_ssl_bool is True:
+                ssl_enabled = True
+            elif use_ssl_bool is False:
+                ssl_enabled = False
 
             # Extract compression and acknowledgment settings
             compressed_str = stanza_data.get("compressed")
