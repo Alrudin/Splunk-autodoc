@@ -171,9 +171,7 @@ def process_job(job_id: int, db_session: Session) -> None:
         job.log = "\n".join(log_entries)
 
         db_session.commit()
-
-        # Re-raise to allow caller to handle
-        raise
+        # Exception is logged and job status updated; no need to re-raise since caller suppresses exceptions.
 
 
 def process_job_sync(job_id: int, db_session: Session) -> None:

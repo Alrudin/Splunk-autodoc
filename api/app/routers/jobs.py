@@ -63,38 +63,13 @@ def create_job(upload_id: int, db: Session = Depends(get_db)) -> JobResponse:  #
         try:
             process_job_sync(job.id, db)
             db.refresh(job)  # Refresh to get updated status and logs
-        except Exception:
+        except Exception as ex:
             # Job processor already marks job as failed and logs error
-            # Just log here and continue to return the job record
-            pass
-
-        # Manually construct response to avoid circular reference issues
-        # When job.graph is loaded, it creates graph -> project -> graphs[] -> job -> graph cycle
-        from app.schemas.upload import UploadResponse, UploadStatus
-
-        response = JobResponse(
-            id=job.id,
-            upload_id=job.upload_id,
-            status=job.status,  # type: ignore
-            log=job.log,
-            started_at=job.started_at,
-            finished_at=job.finished_at,
-            created_at=job.created_at,
-            upload=(
-                UploadResponse(
-                    id=job.upload.id,
-                    project_id=job.upload.project_id,
-                    filename=job.upload.filename,
-                    size=job.upload.size,
-                    status=cast(UploadStatus, job.upload.status),
-                    storage_uri=job.upload.storage_uri,
-                    created_at=job.upload.created_at,
-                )
-                if job.upload
-                else None
-            ),
-            graph=None,  # Omit graph to avoid circular reference
-        )
+            # Log the exception for debugging purposes
+            import logging
+            logging.exception("Error during job processing or refresh")
+        # Return ORM model instance directly; Pydantic schema handles serialization and avoids cycles
+        return job
 
         return response
     except Exception as e:
