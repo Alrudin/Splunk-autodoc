@@ -2,7 +2,7 @@
 
 ## Task 1: Implement Backend Unit Tests for Parser Service
 
-Implement all test methods in `/api/tests/unit/test_parser.py` following the established TODO patterns. Use golden config fixtures from `tests/fixtures/splunk_configs.py` (e.g., `create_uf_config`, `create_hf_config`). Test precedence resolution, inputs.conf parsing (monitor, tcp, udp, splunktcp, http, script), outputs.conf parsing (tcpout groups, SSL, indexer discovery), props.conf parsing (sourcetype/source/host stanzas, transforms references), transforms.conf parsing (index routing, drops, sourcetype rewrites), and sensitive value redaction.
+Implement all test methods in `test_parser.py` following TODO patterns. Test precedence resolution, inputs.conf parsing (monitor, tcp, udp, splunktcp, http, script), outputs.conf parsing (tcpout groups, SSL, indexer discovery), props.conf/transforms.conf parsing, and sensitive value redaction using golden config fixtures.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/api/tests/unit/test_parser.py`
@@ -13,7 +13,7 @@ Relevant Files:
 
 ## Task 2: Implement Backend Unit Tests for Resolver Service
 
-Implement all test methods in `/api/tests/unit/test_resolver.py` following the established TODO patterns. Test host building from parsed configs, protocol determination (splunktcp, http, syslog), output target resolution, transforms evaluation order, edge building and merging, placeholder host creation for unknown destinations, graph metadata generation, and complete canonical graph building. Use parsed config fixtures from parser tests.
+Implement all test methods in `test_resolver.py` following TODO patterns. Test host building, protocol determination (splunktcp, http, syslog), output target resolution, transforms evaluation, edge building/merging, placeholder host creation, graph metadata generation, and canonical graph building using parsed config fixtures.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/api/tests/unit/test_resolver.py`
@@ -24,7 +24,7 @@ Relevant Files:
 
 ## Task 3: Implement Backend Unit Tests for Validator Service
 
-Implement all test methods in `/api/tests/unit/test_validator.py` following the established TODO patterns. Test detection of dangling outputs, unknown indexes, unsecured pipes (no TLS), drop paths (nullQueue), ambiguous groups (no defaultGroup), missing configs, circular routing, and complete validation workflows. Use canonical graph structures from resolver tests.
+Implement all test methods in `test_validator.py` following TODO patterns. Test detection of dangling outputs, unknown indexes, unsecured pipes (no TLS), drop paths (nullQueue), ambiguous groups, missing configs, circular routing, and complete validation workflows using canonical graph structures.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/api/tests/unit/test_validator.py`
@@ -34,7 +34,7 @@ Relevant Files:
 
 ## Task 4: Implement Backend Unit Tests for Storage Service
 
-Implement all test methods in `/api/tests/unit/test_storage.py` following the established TODO patterns. Test archive extraction (zip, tar.gz), file validation (magic bytes, size limits), safe path extraction (prevent path traversal), upload saving with streaming, parsed config storage, canonical graph storage, artifact cleanup, and listing extracted files. Use `temp_storage_root` fixture and `create_test_archive` helper.
+Implement all test methods in `test_storage.py` following TODO patterns. Test archive extraction (zip, tar.gz), file validation (magic bytes, size limits), safe path extraction (prevent path traversal), upload saving with streaming, parsed config storage, canonical graph storage, artifact cleanup, and listing extracted files.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/api/tests/unit/test_storage.py`
@@ -44,7 +44,7 @@ Relevant Files:
 
 ## Task 5: Implement Backend Unit Tests for Export Service
 
-Implement all test methods in `/api/tests/unit/test_export.py` following the established TODO patterns. Test DOT generation (node styling by role, edge labels, TLS styling, placeholder styling), JSON generation (pretty print, minified, serialization), PNG/PDF/SVG generation (requires Graphviz, use `@pytest.mark.requires_graphviz`), graph filtering (by role, index, host), and export archive creation. Use canonical graph structures.
+Implement all test methods in `test_export.py` following TODO patterns. Test DOT generation (node/edge styling, TLS, placeholders), JSON generation (pretty/minified), PNG/PDF/SVG generation (with `@pytest.mark.requires_graphviz`), graph filtering (by role, index, host), and export archive creation using canonical graph structures.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/api/tests/unit/test_export.py`
@@ -54,7 +54,7 @@ Relevant Files:
 
 ## Task 6: Implement Backend Integration Tests for Uploads API
 
-Create `/api/tests/integration/test_api_uploads.py` following the pattern from `test_api_projects.py`. Test `POST /projects/{id}/uploads` (file upload with multipart/form-data, validation, storage), `GET /uploads/{id}`, `GET /projects/{id}/uploads` (list), and `DELETE /uploads/{id}` (with cascade and file cleanup). Use `client` fixture with DB override, `sample_project` fixture, and `create_test_archive` helper for realistic uploads.
+Create `test_api_uploads.py` following the pattern from `test_api_projects.py`. Test `POST /projects/{id}/uploads` (multipart/form-data, validation, storage), `GET /uploads/{id}`, `GET /projects/{id}/uploads` (list), and `DELETE /uploads/{id}` (cascade, file cleanup) using `client` fixture and `create_test_archive` helper.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/api/tests/integration/test_api_projects.py`
@@ -65,7 +65,7 @@ Relevant Files:
 
 ## Task 7: Implement Backend Integration Tests for Jobs API
 
-Create `/api/tests/integration/test_api_jobs.py` following the pattern from `test_api_projects.py`. Test `POST /uploads/{id}/jobs` (create job, trigger processing), `GET /jobs/{id}` (status, logs, timestamps), `GET /uploads/{id}/jobs` (list with status filtering), job status transitions (pending → running → completed/failed), and preventing deletion of running jobs. Use `client` fixture, `sample_upload` fixture, and mock `process_job_sync` for faster tests.
+Create `test_api_jobs.py` following the pattern from `test_api_projects.py`. Test `POST /uploads/{id}/jobs`, `GET /jobs/{id}` (status, logs, timestamps), `GET /uploads/{id}/jobs` (list with filtering), job status transitions (pending → running → completed/failed), and preventing deletion of running jobs. Mock `process_job_sync` for faster tests.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/api/tests/integration/test_api_projects.py`
@@ -76,7 +76,7 @@ Relevant Files:
 
 ## Task 8: Implement Backend Integration Tests for Graphs API
 
-Create `/api/tests/integration/test_api_graphs.py` following the pattern from `test_api_projects.py`. Test `GET /projects/{id}/graphs` (list with filtering), `GET /graphs/{id}` (retrieve canonical JSON), `GET /graphs/{id}/findings`, `GET /graphs/{id}/query` (server-side filtering by host/index/protocol), `POST /graphs/{id}/validate` (re-run validation), and `GET /graphs/{id}/exports` (DOT/JSON/PNG/PDF formats). Use `client` fixture, `sample_graph` fixture, and `sample_finding` fixture.
+Create `test_api_graphs.py` following the pattern from `test_api_projects.py`. Test `GET /projects/{id}/graphs`, `GET /graphs/{id}`, `GET /graphs/{id}/findings`, `GET /graphs/{id}/query` (server-side filtering), `POST /graphs/{id}/validate`, and `GET /graphs/{id}/exports` (DOT/JSON/PNG/PDF formats) using `sample_graph` and `sample_finding` fixtures.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/api/tests/integration/test_api_projects.py`
@@ -86,7 +86,7 @@ Relevant Files:
 
 ## Task 9: Implement Backend End-to-End Integration Test
 
-Create `/api/tests/integration/test_end_to_end.py` with complete workflow tests: create project → upload archive → create job → wait for completion → verify graph → verify findings → test exports. Test parsing workflow (parse → resolve → validate pipeline), export workflow (generate all formats), and error handling (malformed configs, missing files). Use all fixtures and test the complete `processor.py` pipeline with real golden configs.
+Create `test_end_to_end.py` with complete workflow tests: create project → upload archive → create job → wait for completion → verify graph → verify findings → test exports. Test parsing workflow (parse → resolve → validate pipeline), export workflow (all formats), and error handling (malformed configs, missing files) using real golden configs.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/api/tests/integration/test_api_projects.py`
@@ -97,7 +97,7 @@ Relevant Files:
 
 ## Task 10: Implement Frontend Unit Tests for Custom Hooks
 
-Implement tests for `useProjects`, `useUpload`, `useJobPolling`, and `useGraph` hooks in `/frontend/src/hooks/__tests__/`. Use `renderHook` from `@testing-library/react`, `waitFor` for async operations, and MSW handlers from `/frontend/src/test/mocks/handlers.ts`. Test fetching data on mount, create/update/delete operations, polling logic, status updates, error handling, and loading states. Follow the pattern from existing component tests.
+Implement tests for `useProjects`, `useUpload`, `useJobPolling`, and `useGraph` hooks in `hooks/__tests__/`. Use `renderHook` from `@testing-library/react`, `waitFor` for async operations, and MSW handlers. Test fetching on mount, CRUD operations, polling logic, status updates, error handling, and loading states.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/frontend/src/hooks/__tests__/useProjects.test.ts`
@@ -112,7 +112,7 @@ Relevant Files:
 
 ## Task 11: Implement Frontend Unit Tests for Components
 
-Implement tests for `FilterPanel`, `NodeInspector`, and `EdgeInspector` components in `/frontend/src/components/__tests__/`. Use `render`, `screen`, `fireEvent` from `@testing-library/react` and the custom `render` wrapper from `/frontend/src/test/utils.tsx`. Test role/index/host filtering, clear filters, node/edge data display, interaction handlers, and UI state changes. Mock API responses with MSW handlers.
+Implement tests for `FilterPanel`, `NodeInspector`, and `EdgeInspector` components in `components/__tests__/`. Use `render`, `screen`, `fireEvent` from `@testing-library/react` and custom render wrapper. Test role/index/host filtering, clear filters, node/edge data display, interaction handlers, and UI state changes with MSW handlers.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/frontend/src/components/__tests__/FilterPanel.test.tsx`
@@ -125,7 +125,7 @@ Relevant Files:
 
 ## Task 12: Implement Frontend Unit Tests for Pages
 
-Implement tests for `Projects`, `Upload`, `GraphExplorer`, and `Findings` pages in `/frontend/src/pages/__tests__/`. Use `render`, `screen`, `fireEvent`, `waitFor` from `@testing-library/react` and the custom render wrapper. Test project list rendering, create/delete dialogs, file drag-and-drop, upload progress, job status display, graph rendering, filter application, findings table, and navigation. Mock API responses with MSW handlers.
+Implement tests for `Projects`, `Upload`, `GraphExplorer`, and `Findings` pages in `pages/__tests__/`. Use `render`, `screen`, `fireEvent`, `waitFor` and custom render wrapper. Test project list rendering, create/delete dialogs, file drag-and-drop, upload progress, job status display, graph rendering, filter application, findings table, and navigation with MSW handlers.
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/frontend/src/pages/__tests__/Projects.test.tsx`
@@ -140,7 +140,7 @@ Relevant Files:
 
 ## Task 13: Implement Frontend E2E Tests with Playwright
 
-Implement complete user workflow tests in `/frontend/e2e/upload-flow.spec.ts` using Playwright. Test: create project → upload .zip file → wait for job completion → view graph in explorer → apply filters → export graph (DOT/JSON) → view findings. Also test upload validation (invalid file), job failure display, and graph filtering. Use `page.goto`, `page.click`, `page.fill`, `page.setInputFiles`, `expect().toBeVisible()`, and `page.waitForEvent('download')`. Configure to run against local dev server (http://localhost:5173).
+Implement complete user workflow tests in `upload-flow.spec.ts` using Playwright. Test: create project → upload .zip → wait for job completion → view graph → apply filters → export graph (DOT/JSON) → view findings. Also test upload validation (invalid file), job failure display, and graph filtering using Playwright APIs against local dev server (http://localhost:5173).
 
 Relevant Files:
 - `/Users/johan/src/Splunk-autodoc/frontend/e2e/upload-flow.spec.ts`
