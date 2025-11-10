@@ -57,6 +57,9 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # Allow large file uploads (3GB per spec section 13)
+    client_max_body_size 3G;
+
     # Security headers
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
