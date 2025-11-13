@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from app.services.export import (
+    MAX_DISPLAYED_INDEXES,
     NODE_COLORS,
     build_dot_from_canonical_graph,
     export_as_image,
@@ -152,6 +153,7 @@ class TestDOTGeneration:
                     "roles": ["unknown"],
                     "labels": ["placeholder"],
                     "apps": [],
+                    "is_placeholder": True,
                 },
             ],
             "edges": [
@@ -220,8 +222,21 @@ class TestDOTGeneration:
 
         dot_str = build_dot_from_canonical_graph(graph_json)
 
-        # Higher weight edges should have larger penwidth
-        assert "penwidth" in dot_str
+        # Extract penwidth values for each edge
+        import re
+
+        # Find edge to host2 (weight=1)
+        host2_match = re.search(r'"host1" -> "host2".*?penwidth=([\d.]+)', dot_str)
+        assert host2_match is not None, "host2 edge not found"
+        penwidth_weight1 = float(host2_match.group(1))
+
+        # Find edge to host3 (weight=10)
+        host3_match = re.search(r'"host1" -> "host3".*?penwidth=([\d.]+)', dot_str)
+        assert host3_match is not None, "host3 edge not found"
+        penwidth_weight10 = float(host3_match.group(1))
+
+        # Higher weight should have larger penwidth
+        assert penwidth_weight10 > penwidth_weight1
         # Both edges should be present
         assert "host2" in dot_str
         assert "host3" in dot_str
@@ -261,10 +276,15 @@ class TestDOTGeneration:
 
         # Should be valid DOT
         assert "digraph G {" in dot_str
-        # First few indexes should appear
+        # First MAX_DISPLAYED_INDEXES indexes should appear
         assert "idx1" in dot_str
-        # Many indexes may be truncated with "more" indicator
-        # (depends on implementation, just verify valid DOT)
+        assert "idx2" in dot_str
+        assert "idx3" in dot_str
+        # Verify we're using the correct constant
+        assert MAX_DISPLAYED_INDEXES == 3
+        # Truncation indicator for remaining 7 indexes (10 total - 3 displayed)
+        assert "(+7 more)" in dot_str
+        # Edge should be present
         assert '"host1" -> "host2"' in dot_str
 
 
@@ -635,6 +655,7 @@ class TestExportRouter:
         parsed = json.loads(content)
         assert "hosts" in parsed
 
+    @pytest.mark.requires_graphviz
     def test_export_graph_png_format(self, tmp_path: Path, temp_storage_root: Path):
         """Export graph in PNG format."""
         graph_json = {
@@ -651,6 +672,7 @@ class TestExportRouter:
         assert media_type == "image/png"
         assert content.exists()
 
+    @pytest.mark.requires_graphviz
     def test_export_graph_pdf_format(self, tmp_path: Path, temp_storage_root: Path):
         """Export graph in PDF format."""
         graph_json = {

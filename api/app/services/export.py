@@ -171,16 +171,14 @@ def build_dot_from_canonical_graph(graph_json: dict[str, Any]) -> str:
         if is_placeholder:
             label += "\\n(placeholder)"
 
-        # Node attributes
+        # Node attributes with conditional style based on placeholder status
+        style_value = "filled,dashed" if is_placeholder else "filled"
         node_attrs = [
             f'label="{label}"',
             "shape=box",
             f'fillcolor="{color}"',
-            "style=filled",
+            f'style="{style_value}"',
         ]
-
-        if is_placeholder:
-            node_attrs.append("style=\"filled,dashed\"")
 
         dot_lines.append(f'    "{host_id}" [{", ".join(node_attrs)}];')
 
@@ -200,16 +198,14 @@ def build_dot_from_canonical_graph(graph_json: dict[str, Any]) -> str:
             if len(indexes) > MAX_DISPLAYED_INDEXES:
                 label_parts.append(f"(+{len(indexes) - MAX_DISPLAYED_INDEXES} more)")
         label = "\\n".join(label_parts)
-        if indexes:
-            label_parts.append(", ".join(indexes[:3]))  # Limit to 3 indexes for readability
-            if len(indexes) > 3:
-                label_parts.append(f"(+{len(indexes) - 3} more)")
-        label = "\\n".join(label_parts)
+
+        # Determine edge color based on protocol
+        edge_color = EDGE_COLORS.get(protocol, "#999999")
 
         # Edge attributes
         edge_attrs = [
             f'label="{label}"',
-            f'color="{color}"',
+            f'color="{edge_color}"',
         ]
 
         if tls_enabled:
