@@ -1,5 +1,7 @@
 """Unit tests for the validator service."""
 
+import copy
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -709,8 +711,9 @@ class TestCompleteValidation:
         upload = Upload(
             project_id=project.id,
             filename="test.zip",
+            size=1024,
             status="completed",
-            file_size=1024
+            storage_uri="/tmp/test.zip"
         )
         test_db.add(upload)
         test_db.commit()
@@ -725,12 +728,15 @@ class TestCompleteValidation:
         test_db.refresh(job)
         
         graph = Graph(
+            project_id=project.id,
             job_id=job.id,
+            version="1.0",
             json_blob={
                 "hosts": [],
                 "edges": [],
                 "meta": {}
-            }
+            },
+            meta={}
         )
         test_db.add(graph)
         test_db.commit()
@@ -768,7 +774,7 @@ class TestCompleteValidation:
     def test_validate_and_store_findings(self, test_db, sample_graph):
         """Test validate_and_store_findings integration."""
         # Modify sample_graph to include validation issues
-        graph_json = sample_graph.json_blob
+        graph_json = copy.deepcopy(sample_graph.json_blob)
         graph_json["hosts"].append({
             "id": "unknown_destination",
             "roles": ["unknown"],
@@ -803,14 +809,18 @@ class TestCompleteValidation:
 
     def test_validate_and_store_findings_revalidation(self, test_db, sample_graph):
         """Test revalidation deletes old findings and creates new ones."""
-        # Initial validation with one issue
-        graph_json = sample_graph.json_blob
+        # Modify sample_graph: set original edge's tls to True, add placeholder edge
+        graph_json = copy.deepcopy(sample_graph.json_blob)
+        # Set original non-placeholder edge to tls=True to avoid initial unsecured pipe finding
+        graph_json["edges"][0]["tls"] = True
+        # Add a placeholder host
         graph_json["hosts"].append({
             "id": "unknown_destination",
             "roles": ["unknown"],
             "labels": ["placeholder"],
             "apps": []
         })
+        # Add an edge to the placeholder (will trigger DANGLING_OUTPUT)
         graph_json["edges"].append({
             "src_host": graph_json["hosts"][0]["id"],
             "dst_host": "unknown_destination",
@@ -824,11 +834,13 @@ class TestCompleteValidation:
         sample_graph.json_blob = graph_json
         test_db.commit()
         
+        # Initial validation: should only have DANGLING_OUTPUT, no UNSECURED_PIPE
         initial_findings = validate_and_store_findings(sample_graph.id, test_db)
         initial_count = len(initial_findings)
         
-        # Modify graph to have different issues
-        graph_json["edges"][-1]["tls"] = False  # Add unsecured pipe issue
+        # Modify graph: set the original non-placeholder edge's tls to False
+        graph_json = copy.deepcopy(sample_graph.json_blob)
+        graph_json["edges"][0]["tls"] = False  # Add unsecured pipe issue on real destination
         sample_graph.json_blob = graph_json
         test_db.commit()
         
