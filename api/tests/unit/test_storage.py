@@ -144,6 +144,81 @@ class TestArchiveExtraction:
             assert not (tmp_path / "etc").exists()
             assert not (tmp_path.parent / "etc").exists()
 
+    def test_extract_tar_path_traversal_blocked(self, tmp_path: Path, temp_storage_root: Path):
+        """Verify TAR path traversal attacks are prevented."""
+        # Create malicious .tar.gz with path traversal
+        malicious_tar = tmp_path / "malicious.tar.gz"
+        with tarfile.open(malicious_tar, "w:gz") as tf:
+            # Construct member with path traversal
+            member = tarfile.TarInfo(name="../../etc/passwd")
+            member.size = len(b"x")
+            tf.addfile(member, io.BytesIO(b"x"))
+
+        # Attempt extraction
+        extract_dir = temp_storage_root / "extract"
+        with pytest.raises(ValueError, match="Path traversal attempt"):
+            extract_archive_safe(malicious_tar, extract_dir)
+
+        # Verify no files were created outside target
+        assert not (tmp_path / "etc").exists()
+
+    def test_extract_archive_tgz(self, tmp_path: Path, temp_storage_root: Path):
+        """Extract .tgz archive, verify directory structure."""
+        # Create a .tgz file with a simple conf file
+        tgz_path = tmp_path / "test.tgz"
+        with tarfile.open(tgz_path, "w:gz") as tf:
+            conf_data = b"[monitor://var/log]\nindex=main\n"
+            conf_info = tarfile.TarInfo(name="inputs.conf")
+            conf_info.size = len(conf_data)
+            tf.addfile(conf_info, io.BytesIO(conf_data))
+
+        # Extract archive
+        extract_dir = temp_storage_root / "extract_tgz"
+        extracted_files = extract_archive_safe(tgz_path, extract_dir)
+
+        # Assert extraction directory exists
+        assert extract_dir.exists()
+        # Verify expected file is present
+        assert (extract_dir / "inputs.conf").exists()
+        # Verify file contents match
+        content = (extract_dir / "inputs.conf").read_text()
+        assert "[monitor://var/log]" in content
+        assert len(extracted_files) == 1
+
+    def test_extract_archive_tar(self, tmp_path: Path, temp_storage_root: Path):
+        """Extract plain .tar archive, verify directory structure."""
+        # Create a plain .tar file with a simple conf file
+        tar_path = tmp_path / "test.tar"
+        with tarfile.open(tar_path, "w") as tf:
+            conf_data = b"[tcpout]\ndefaultGroup=indexers\n"
+            conf_info = tarfile.TarInfo(name="outputs.conf")
+            conf_info.size = len(conf_data)
+            tf.addfile(conf_info, io.BytesIO(conf_data))
+
+        # Extract archive
+        extract_dir = temp_storage_root / "extract_tar"
+        extracted_files = extract_archive_safe(tar_path, extract_dir)
+
+        # Assert extraction directory exists
+        assert extract_dir.exists()
+        # Verify expected file is present
+        assert (extract_dir / "outputs.conf").exists()
+        # Verify file contents match
+        content = (extract_dir / "outputs.conf").read_text()
+        assert "[tcpout]" in content
+        assert len(extracted_files) == 1
+
+    def test_extract_unsupported_extension(self, tmp_path: Path, temp_storage_root: Path):
+        """Verify unsupported archive extension raises ValueError."""
+        # Create a dummy file with unsupported extension
+        dummy_path = tmp_path / "dummy.bin"
+        dummy_path.write_bytes(b"\x00\x01\x02\x03\x04\x05")
+
+        # Attempt extraction
+        extract_dir = temp_storage_root / "extract"
+        with pytest.raises(ValueError, match="Unsupported archive format"):
+            extract_archive_safe(dummy_path, extract_dir)
+
 
 @pytest.mark.unit
 class TestFileValidation:
@@ -329,6 +404,48 @@ class TestUploadSaving:
         assert file_path2.exists()
         assert file_path2.read_bytes() == b"second content overwrite"
         assert size2 == len(b"second content overwrite")
+
+    async def test_save_upload_size_limit_exceeded(self, temp_storage_root: Path):
+        """Verify size limit enforcement and partial file cleanup."""
+        # Create mock UploadFile
+        mock_file = Mock(spec=UploadFile)
+        mock_file.filename = "too_big.zip"
+
+        # Prepare chunks that will exceed the limit
+        chunk_ok = b"A" * (CHUNK_SIZE // 2)
+        chunk_over = b"B" * (CHUNK_SIZE // 2)
+        mock_file.read = AsyncMock(side_effect=[chunk_ok, chunk_over, b""])
+
+        # Attempt to save with size limit that will be exceeded
+        with pytest.raises(ValueError, match="File size exceeds maximum"):
+            await save_upload_file(
+                upload_id=1,
+                file=mock_file,
+                original_filename="too_big.zip",
+                max_bytes=len(chunk_ok),
+            )
+
+        # Verify partial file was cleaned up
+        assert (temp_storage_root / "artifacts/1/upload.zip").exists() is False
+
+    async def test_save_upload_read_error_cleanup(self, temp_storage_root: Path):
+        """Validate cleanup on generic I/O error during upload streaming."""
+        # Create mock UploadFile that raises exception during read
+        mock_file = Mock(spec=UploadFile)
+        mock_file.read = AsyncMock(side_effect=[b"chunk", Exception("boom")])
+        mock_file.filename = "ioerr.zip"
+
+        # Attempt to save - should raise the exception
+        with pytest.raises(Exception, match="boom"):
+            await save_upload_file(
+                upload_id=1,
+                file=mock_file,
+                original_filename="ioerr.zip",
+                max_bytes=10**6,
+            )
+
+        # Verify partial file was cleaned up
+        assert (temp_storage_root / "artifacts/1/upload.zip").exists() is False
 
 
 @pytest.mark.unit
