@@ -265,14 +265,14 @@ class TestFileValidation:
         assert validate_archive_content(tar_gz_path) is True
 
     def test_validate_magic_bytes_mismatch(self, tmp_path: Path):
-        """Detect archive content regardless of extension."""
+        """Reject file with mismatched extension and magic bytes."""
         # Create .zip file but name it .tar.gz
         misnamed_path = tmp_path / "fake.tar.gz"
         with zipfile.ZipFile(misnamed_path, "w") as zf:
             zf.writestr("test.conf", "content")
 
-        # Should detect ZIP magic bytes (content-based, not extension-based)
-        assert validate_archive_content(misnamed_path) is True
+        # Should reject: extension is .tar.gz, but content is ZIP
+        assert validate_archive_content(misnamed_path) is False
 
 
 @pytest.mark.unit
@@ -322,7 +322,9 @@ class TestSafePathExtraction:
             # Note: Creating actual symlink in ZIP requires special handling
             # For this test, we verify that extract_archive_safe filters symlinks
             symlink_info = zipfile.ZipInfo("malicious_link")
-            symlink_info.external_attr = 0xA0000000  # Mark as symlink
+            # Mark as symlink using Unix external attribute (S_IFLNK << 16).
+            # See: https://github.com/python/cpython/issues/88102
+            symlink_info.external_attr = 0xA0000000  # S_IFLNK << 16 for symlink
             zf.writestr(symlink_info, "../outside/target.txt")
 
         # Extract - should filter out symlinks
@@ -379,6 +381,8 @@ class TestUploadSaving:
         assert file_size == len(test_data)
         # Verify file contents match
         assert file_path.read_bytes() == test_data
+        # Verify chunked reading: mock_file.read called once per chunk plus one for EOF
+        assert mock_file.read.call_count == len(chunks) + 1
 
     async def test_save_upload_duplicate_overwrites(self, temp_storage_root: Path):
         """Verify that saving with same upload_id overwrites previous file."""
@@ -424,9 +428,9 @@ class TestUploadSaving:
                 original_filename="too_big.zip",
                 max_bytes=len(chunk_ok),
             )
-
+        assert not (temp_storage_root / "artifacts/1/upload.zip").exists()
         # Verify partial file was cleaned up
-        assert (temp_storage_root / "artifacts/1/upload.zip").exists() is False
+        assert not (temp_storage_root / "artifacts/1/upload.zip").exists()
 
     async def test_save_upload_read_error_cleanup(self, temp_storage_root: Path):
         """Validate cleanup on generic I/O error during upload streaming."""
