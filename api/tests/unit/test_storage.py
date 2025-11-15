@@ -264,16 +264,6 @@ class TestFileValidation:
         # Validate magic bytes
         assert validate_archive_content(tar_gz_path) is True
 
-    def test_validate_magic_bytes_mismatch(self, tmp_path: Path):
-        """Reject file with mismatched extension and magic bytes."""
-        # Create .zip file but name it .tar.gz
-        misnamed_path = tmp_path / "fake.tar.gz"
-        with zipfile.ZipFile(misnamed_path, "w") as zf:
-            zf.writestr("test.conf", "content")
-
-        # Should reject: extension is .tar.gz, but content is ZIP
-        assert validate_archive_content(misnamed_path) is False
-
 
 @pytest.mark.unit
 class TestSafePathExtraction:

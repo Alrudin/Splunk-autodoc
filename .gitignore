@@ -119,3 +119,6 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 etc.tar
+debug_node_styling.py
+coverage.xml
+api/coverage.xml

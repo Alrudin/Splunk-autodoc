@@ -471,7 +471,7 @@ def apply_transforms_to_index(
                 # Apply index routing
                 if transform.is_index_routing:
                     if transform.format:
-                        current_indexes = [transform.format]
+                        current_indexes.append(transform.format)
                         filters_applied.append(f"TRANSFORMS:{transform_ref}")
                     else:
                         logger.warning(

@@ -70,7 +70,7 @@ class TestDOTGeneration:
         assert NODE_COLORS["indexer"] in dot_str
         assert NODE_COLORS["search_head"] in dot_str
         assert "shape=box" in dot_str
-        assert "style=filled" in dot_str
+        assert "style=\"filled\"" in dot_str
         # Verify role abbreviations
         assert "UF" in dot_str
         assert "HF" in dot_str
