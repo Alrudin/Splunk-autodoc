@@ -334,7 +334,7 @@ class TestTransformsEvaluation:
         )
 
         assert len(drop_rules) > 0
-        assert any("DEBUG" in rule for rule in drop_rules)
+        assert any("drop_debug" in rule for rule in drop_rules)
 
     def test_apply_transforms_sourcetype_rewrite(self):
         """Verify sourcetype rewrite and re-evaluation."""
