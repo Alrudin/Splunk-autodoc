@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     allow_origins: str = "http://localhost:5173,http://localhost:8080"
 
     # Storage configuration
-    storage_root: str = "/data"
+    storage_root: str = "data"
 
     # Server configuration
     workers: int = 4
