@@ -47,7 +47,8 @@ class Job(Base):
     )
 
     # Relationships
-    upload: Mapped["Upload"] = relationship("Upload", back_populates="jobs", lazy="selectin")
+    # Changed from lazy="selectin" to default lazy loading to avoid automatic loading of nested relationships
+    upload: Mapped["Upload"] = relationship("Upload", back_populates="jobs")
     graph: Mapped["Graph | None"] = relationship(
         "Graph", back_populates="job", uselist=False, cascade="all, delete-orphan"
     )

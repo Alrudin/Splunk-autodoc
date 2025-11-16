@@ -441,13 +441,10 @@ def detect_unsecured_pipes(
     Checks edges with protocols in TLS_REQUIRED_PROTOCOLS. A finding is generated
     if tls=False or tls=None (unknown TLS state is treated as insecure).
 
-    Skips edges to placeholder/unreachable destinations to reduce noise, as
-    security concerns are moot for non-existent connections.
-
     Args:
         edges: List of edge dicts from canonical graph
         meta: Meta dict with traceability information
-        placeholder_host_ids: Set of placeholder host IDs (to skip)
+        placeholder_host_ids: Set of placeholder host IDs (currently unused, kept for API compatibility)
 
     Returns:
         List of finding dicts with code, severity, message, context
@@ -468,11 +465,6 @@ def detect_unsecured_pipes(
     for edge in edges:
         protocol = edge.get("protocol")
         if protocol in TLS_REQUIRED_PROTOCOLS:
-            # Skip placeholder/unreachable destinations to reduce noise
-            dst_host = edge.get("dst_host")
-            if dst_host and dst_host in placeholder_host_ids:
-                continue
-
             tls = edge.get("tls")
             # tls=None is treated as unsecured (unknown = assume insecure)
             if tls is False or tls is None:

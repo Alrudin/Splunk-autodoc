@@ -58,93 +58,139 @@ export const VisNetworkCanvas = forwardRef<VisNetworkHandle, VisNetworkCanvasPro
 
   // Transform hosts to vis-network nodes
   const nodes = useMemo<Node[]>(() => {
-    return hosts.map((host) => {
-      // Determine node color based on primary role
-      const primaryRole = host.roles[0] || 'unknown'
-      const color = roleColors[primaryRole] || roleColors.unknown
+    try {
+      if (!Array.isArray(hosts)) {
+        console.error('hosts is not an array:', hosts)
+        return []
+      }
 
-      // Assign hierarchical level based on role for proper left-to-right layout
-      // Input sources/UF = 1, HF = 2, Indexers = 3, Search Heads = 4, Unknown = 2 (middle)
-      let level: number | undefined
-      if (layoutMode === 'hierarchical') {
-        if (primaryRole === 'universal_forwarder') {
-          level = 1
-        } else if (primaryRole === 'heavy_forwarder') {
-          level = 2
-        } else if (primaryRole === 'indexer') {
-          level = 3
-        } else if (primaryRole === 'search_head') {
-          level = 4
-        } else {
-          level = 2 // Default to middle level for unknown roles
+      return hosts.map((host, index) => {
+        // Validate host object
+        if (!host || typeof host !== 'object') {
+          console.error(`Invalid host at index ${index}:`, host)
+          return null
         }
-      }
 
-      // Create tooltip with host information
-      const tooltip = `
-        <div style="padding: 8px;">
-          <strong>${host.id}</strong><br/>
-          <strong>Roles:</strong> ${host.roles.join(', ') || 'none'}<br/>
-          <strong>Apps:</strong> ${host.apps.length || 0}<br/>
-          ${host.labels.length > 0 ? `<strong>Labels:</strong> ${host.labels.join(', ')}<br/>` : ''}
-        </div>
-      `
+        if (!host.id) {
+          console.error(`Host at index ${index} missing id:`, host)
+          return null
+        }
 
-      return {
-        id: host.id,
-        label: host.id,
-        title: tooltip,
-        color,
-        shape: 'box',
-        font: { size: 14 },
-        level, // Include level for hierarchical layout
-      }
-    })
+        // Determine node color based on primary role
+        const primaryRole = (Array.isArray(host.roles) && host.roles.length > 0) ? host.roles[0] : 'unknown'
+        const color = roleColors[primaryRole] || roleColors.unknown
+
+        // Assign hierarchical level based on role for proper left-to-right layout
+        // Input sources/UF = 1, HF = 2, Indexers = 3, Search Heads = 4, Unknown = 2 (middle)
+        let level: number | undefined
+        if (layoutMode === 'hierarchical') {
+          if (primaryRole === 'universal_forwarder') {
+            level = 1
+          } else if (primaryRole === 'heavy_forwarder') {
+            level = 2
+          } else if (primaryRole === 'indexer') {
+            level = 3
+          } else if (primaryRole === 'search_head') {
+            level = 4
+          } else {
+            level = 2 // Default to middle level for unknown roles
+          }
+        }
+
+        // Create tooltip with host information
+        const tooltip = `
+          <div style="padding: 8px;">
+            <strong>${host.id}</strong><br/>
+            <strong>Roles:</strong> ${Array.isArray(host.roles) ? host.roles.join(', ') : 'none'}<br/>
+            <strong>Apps:</strong> ${Array.isArray(host.apps) ? host.apps.length : 0}<br/>
+            ${Array.isArray(host.labels) && host.labels.length > 0 ? `<strong>Labels:</strong> ${host.labels.join(', ')}<br/>` : ''}
+          </div>
+        `
+
+        return {
+          id: host.id,
+          label: host.id,
+          title: tooltip,
+          color,
+          shape: 'box',
+          font: { size: 14 },
+          level, // Include level for hierarchical layout
+        }
+      }).filter(Boolean) as Node[]
+    } catch (error) {
+      console.error('Error transforming hosts to nodes:', error)
+      console.error('hosts value:', hosts)
+      return []
+    }
   }, [hosts, layoutMode])
 
   // Transform edges to vis-network edges and build edge ID mapping
   const { visEdges, edgeMap } = useMemo(() => {
     const map = new Map<string, Edge>()
-    const edgeCount = edges.length
-    const visEdgeList = edges.map((edge) => {
-      // Generate robust unique edge ID using shared utility
-      const edgeId = edgeIdFromEdge(edge)
 
-      // Store edge in map for lookup
-      map.set(edgeId, edge)
-
-      // Determine edge color based on protocol
-      const color = protocolColors[edge.protocol] || protocolColors.tcp
-
-      // Create tooltip with edge information
-      const tooltip = `
-        <div style="padding: 8px;">
-          <strong>${edge.src_host} → ${edge.dst_host}</strong><br/>
-          <strong>Protocol:</strong> ${edge.protocol}<br/>
-          <strong>TLS:</strong> ${edge.tls === true ? 'Yes' : edge.tls === false ? 'No' : 'Unknown'}<br/>
-          <strong>Indexes:</strong> ${edge.indexes.join(', ') || 'none'}<br/>
-          <strong>Sourcetypes:</strong> ${edge.sourcetypes.length || 0}<br/>
-          <strong>Weight:</strong> ${edge.weight}<br/>
-        </div>
-      `
-
-      // Scale width based on weight (1-10)
-      const width = Math.max(1, Math.min(10, edge.weight))
-
-      return {
-        id: edgeId,
-        from: edge.src_host,
-        to: edge.dst_host,
-        // Only show labels for small graphs (< 1000 edges) for performance
-        label: edgeCount < 1000 ? edge.protocol : undefined,
-        title: tooltip,
-        color,
-        width,
-        dashes: edge.tls === false, // Dashed if no TLS
-        arrows: 'to',
+    try {
+      if (!Array.isArray(edges)) {
+        console.error('edges is not an array:', edges)
+        return { visEdges: [], edgeMap: map }
       }
-    })
-    return { visEdges: visEdgeList, edgeMap: map }
+
+      const edgeCount = edges.length
+      const visEdgeList = edges.map((edge, index) => {
+        // Validate edge object
+        if (!edge || typeof edge !== 'object') {
+          console.error(`Invalid edge at index ${index}:`, edge)
+          return null
+        }
+
+        if (!edge.src_host || !edge.dst_host) {
+          console.error(`Edge at index ${index} missing src_host or dst_host:`, edge)
+          return null
+        }
+
+        // Generate robust unique edge ID using shared utility
+        const edgeId = edgeIdFromEdge(edge)
+
+        // Store edge in map for lookup
+        map.set(edgeId, edge)
+
+        // Determine edge color based on protocol
+        const color = protocolColors[edge.protocol] || protocolColors.tcp
+
+        // Create tooltip with edge information
+        const tooltip = `
+          <div style="padding: 8px;">
+            <strong>${edge.src_host} → ${edge.dst_host}</strong><br/>
+            <strong>Protocol:</strong> ${edge.protocol}<br/>
+            <strong>TLS:</strong> ${edge.tls === true ? 'Yes' : edge.tls === false ? 'No' : 'Unknown'}<br/>
+            <strong>Indexes:</strong> ${Array.isArray(edge.indexes) ? edge.indexes.join(', ') : 'none'}<br/>
+            <strong>Sourcetypes:</strong> ${Array.isArray(edge.sourcetypes) ? edge.sourcetypes.length : 0}<br/>
+            <strong>Weight:</strong> ${edge.weight}<br/>
+          </div>
+        `
+
+        // Scale width based on weight (1-10)
+        const width = Math.max(1, Math.min(10, edge.weight || 1))
+
+        return {
+          id: edgeId,
+          from: edge.src_host,
+          to: edge.dst_host,
+          // Only show labels for small graphs (< 1000 edges) for performance
+          label: edgeCount < 1000 ? edge.protocol : undefined,
+          title: tooltip,
+          color,
+          width,
+          dashes: edge.tls === false, // Dashed if no TLS
+          arrows: 'to',
+        }
+      }).filter(Boolean)
+
+      return { visEdges: visEdgeList, edgeMap: map }
+    } catch (error) {
+      console.error('Error transforming edges:', error)
+      console.error('edges value:', edges)
+      return { visEdges: [], edgeMap: map }
+    }
   }, [edges])
 
   // Notify parent component of edge map updates
