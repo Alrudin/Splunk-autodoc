@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 
 from app.models.graph import Graph
 from app.models.job import Job
+from app.models.upload import Upload
 from app.services.parser import (
     InputStanza,
     OutputGroup,
@@ -68,9 +69,9 @@ PROTOCOL_MAPPINGS = {
 # Precedence order for props matching (lower = higher precedence)
 # sourcetype < source < host per Splunk's evaluation order
 PRECEDENCE_ORDER = {
-    "sourcetype": 0,
-    "source": 1,
-    "host": 2,
+    "host": 0,      # Lowest precedence
+    "source": 1,    # Medium precedence
+    "sourcetype": 2  # Highest precedence
 }
 
 logger = logging.getLogger(__name__)
@@ -445,11 +446,18 @@ def apply_transforms_to_index(
 
         sourcetype_changed = False
 
+        # Track which precedence level has index routing transforms
+        # Only apply index routing from the highest precedence level
+        index_routing_by_precedence = {}  # precedence_level -> list of (transform_ref, index)
+
         # Apply transforms from matching props
-        for _match_type, prop in matching_props:
+        for match_type, prop in matching_props:
             # Mark this prop as processed
             prop_key = (prop.stanza_type, prop.stanza_value, current_sourcetype)
             processed_props.add(prop_key)
+
+            # Get precedence level for this match type
+            precedence_level = PRECEDENCE_ORDER.get(match_type, -1)
 
             # Evaluate each transform reference in order
             transform_refs = prop.transforms or []
@@ -468,10 +476,15 @@ def apply_transforms_to_index(
                     )
                     continue
 
-                # Apply index routing
+                # Track index routing transforms by precedence level
                 if transform.is_index_routing:
                     if transform.format:
-                        current_indexes.append(transform.format)
+                        if precedence_level not in index_routing_by_precedence:
+                            index_routing_by_precedence[precedence_level] = []
+                        index_routing_by_precedence[precedence_level].append(
+                            (transform_ref, transform.format)
+                        )
+                        # Always track in filters for traceability
                         filters_applied.append(f"TRANSFORMS:{transform_ref}")
                     else:
                         logger.warning(
@@ -498,6 +511,14 @@ def apply_transforms_to_index(
                             f"Transform '{transform_ref}' is sourcetype rewrite but has no "
                             f"FORMAT value"
                         )
+
+        # Apply index routing only from the highest precedence level
+        if index_routing_by_precedence:
+            highest_precedence = max(index_routing_by_precedence.keys())
+            # Replace current indexes with the routed indexes (don't append)
+            current_indexes = []
+            for _transform_ref, index in index_routing_by_precedence[highest_precedence]:
+                current_indexes.append(index)
 
         # If sourcetype changed, continue to next iteration to re-evaluate props
         if not sourcetype_changed:
@@ -924,14 +945,18 @@ def resolve_and_create_graph(job_id: int, parsed: ParsedConfig, db_session: Sess
         # Build canonical graph
         canonical_json = build_canonical_graph(parsed)
 
-        # Query Job to get project_id via upload relationship
+        # Query Job and Upload separately to avoid lazy-load issues
         job = db_session.query(Job).filter(Job.id == job_id).first()
         if not job:
             raise ValueError(f"Job with id={job_id} not found")
 
-        # Create Graph record (upload relationship is loaded with lazy="selectin")
+        upload = db_session.query(Upload).filter(Upload.id == job.upload_id).first()
+        if not upload:
+            raise ValueError(f"Upload with id={job.upload_id} not found")
+
+        # Create Graph record using upload.project_id directly
         graph = Graph(
-            project_id=job.upload.project_id,
+            project_id=upload.project_id,
             job_id=job_id,
             version=GRAPH_VERSION,
             json_blob=canonical_json,

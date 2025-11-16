@@ -231,9 +231,9 @@ export function EdgeInspector({ edgeId, edgeMap, findings, onClose, onFilterByPr
                 Indexes ({edge.indexes.length})
               </h3>
               <div className="flex flex-wrap gap-1">
-                {edge.indexes.map((idx) => (
-                  <Badge key={idx} className="text-xs bg-orange-100 text-orange-800">
-                    {idx}
+                {edge.indexes.map((indexName) => (
+                  <Badge key={indexName} className="text-xs bg-orange-100 text-orange-800">
+                    {indexName}
                   </Badge>
                 ))}
               </div>

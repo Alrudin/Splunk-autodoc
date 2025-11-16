@@ -68,9 +68,19 @@ def create_job(upload_id: int, db: Session = Depends(get_db)) -> JobResponse:  #
             # Log the exception for debugging purposes
             import logging
             logging.exception("Error during job processing or refresh")
-        # Return ORM model instance directly; Pydantic schema handles serialization and avoids cycles
-        return job
-
+        # Manually construct response to avoid circular reference issues
+        # (job → graph → project → graphs → job cycle)
+        response = JobResponse(
+            id=job.id,
+            upload_id=job.upload_id,
+            status=job.status,
+            log=job.log,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            created_at=job.created_at,
+            upload=None,  # Omit nested upload to avoid circular references
+            graph=None,   # Omit nested graph to avoid circular references
+        )
         return response
     except Exception as e:
         db.rollback()
@@ -106,4 +116,16 @@ def get_job(job_id: int, db: Session = Depends(get_db)) -> JobResponse:  # noqa:
     # - upload: related upload (via relationship with lazy="selectin")
     # - graph: related graph if completed (one-to-one relationship)
 
-    return job
+    # Manually construct response to avoid circular reference issues
+    response = JobResponse(
+        id=job.id,
+        upload_id=job.upload_id,
+        status=job.status,
+        log=job.log,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+        created_at=job.created_at,
+        upload=None,  # Omit to avoid circular references
+        graph=None,   # Omit to avoid circular references
+    )
+    return response

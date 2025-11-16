@@ -50,14 +50,31 @@ export function GraphExplorerPage() {
 
   // Client-side filtering of graph data
   const { filteredHosts, filteredEdges } = useMemo(() => {
-    if (!graph?.json_blob) {
-      return { filteredHosts: [], filteredEdges: [] }
-    }
+    try {
+      if (!graph?.json_blob) {
+        return { filteredHosts: [], filteredEdges: [] }
+      }
 
-    const { hosts, edges } = graph.json_blob
+      const { hosts, edges } = graph.json_blob
 
-    // Filter hosts first
-    let filteredHostList = hosts
+      // Ensure hosts and edges are arrays (defensive check)
+      if (!Array.isArray(hosts) || !Array.isArray(edges)) {
+        console.error('Invalid graph data structure:', { hosts, edges })
+        return { filteredHosts: [], filteredEdges: [] }
+      }
+
+      // Log data structure for debugging
+      console.log('Graph data loaded:', {
+        hostCount: hosts.length,
+        edgeCount: edges.length,
+        firstHost: hosts[0],
+        firstEdge: edges[0]
+      })
+      console.log('Full hosts array:', hosts)
+      console.log('Full edges array:', edges)
+
+    // Filter hosts first - add null/undefined checks
+    let filteredHostList = hosts.filter(h => h && typeof h === 'object' && h.id)
 
     if (filters.host) {
       const searchTerm = filters.host.toLowerCase()
@@ -68,28 +85,28 @@ export function GraphExplorerPage() {
 
     if (filters.role) {
       filteredHostList = filteredHostList.filter((h) =>
-        h.roles.includes(filters.role!)
+        Array.isArray(h.roles) && h.roles.includes(filters.role!)
       )
     }
 
     if (filters.app) {
       const searchTerm = filters.app.toLowerCase()
       filteredHostList = filteredHostList.filter((h) =>
-        h.apps.some((app) => app.toLowerCase().includes(searchTerm))
+        Array.isArray(h.apps) && h.apps.some((app) => app && app.toLowerCase && app.toLowerCase().includes(searchTerm))
       )
     }
 
     // Build set of valid host IDs after host-based filtering
-    const validHostIds = new Set(filteredHostList.map((h) => h.id))
+    const validHostIds = new Set(filteredHostList.filter(h => h && h.id).map((h) => h.id))
 
-    // Filter edges
-    let filteredEdgeList = edges
+    // Filter edges - add null/undefined checks
+    let filteredEdgeList = edges.filter(e => e && typeof e === 'object' && e.src_host && e.dst_host)
 
     // Ensure edges only reference hosts that exist in filteredHostList
     // This is critical when host or role filters are active
     if (filters.host || filters.role) {
       filteredEdgeList = filteredEdgeList.filter(
-        (e) => validHostIds.has(e.src_host) && validHostIds.has(e.dst_host)
+        (e) => e && e.src_host && e.dst_host && validHostIds.has(e.src_host) && validHostIds.has(e.dst_host)
       )
     }
 
@@ -100,14 +117,14 @@ export function GraphExplorerPage() {
     if (filters.index) {
       const searchTerm = filters.index.toLowerCase()
       filteredEdgeList = filteredEdgeList.filter((e) =>
-        e.indexes.some((idx) => idx.toLowerCase().includes(searchTerm))
+        Array.isArray(e.indexes) && e.indexes.some((idx) => idx && idx.toLowerCase && idx.toLowerCase().includes(searchTerm))
       )
     }
 
     if (filters.sourcetype) {
       const searchTerm = filters.sourcetype.toLowerCase()
       filteredEdgeList = filteredEdgeList.filter((e) =>
-        e.sourcetypes.some((st) => st.toLowerCase().includes(searchTerm))
+        Array.isArray(e.sourcetypes) && e.sourcetypes.some((st) => st && st.toLowerCase && st.toLowerCase().includes(searchTerm))
       )
     }
 
@@ -133,9 +150,14 @@ export function GraphExplorerPage() {
       )
     }
 
-    return {
-      filteredHosts: filteredHostList,
-      filteredEdges: filteredEdgeList,
+      return {
+        filteredHosts: filteredHostList,
+        filteredEdges: filteredEdgeList,
+      }
+    } catch (error) {
+      console.error('Error in useMemo filtering:', error)
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack')
+      return { filteredHosts: [], filteredEdges: [] }
     }
   }, [graph, filters])
 
@@ -262,7 +284,10 @@ export function GraphExplorerPage() {
     }
   }, [location.state, filteredEdges, filteredHosts, edgeMap])
 
-  // Filters are managed by Zustand; no filter change callback needed
+  // Filters are managed by Zustand; FilterPanel requires this callback prop
+  const handleFilterChange = useCallback(() => {
+    // No-op: FilterPanel updates filters via Zustand, this is just for prop compatibility
+  }, [])
 
   // Handle edge map updates from VisNetworkCanvas
   const handleEdgeMapUpdate = useCallback((newEdgeMap: Map<string, Edge>) => {

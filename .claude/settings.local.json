@@ -6,7 +6,21 @@
       "Bash(pytest:*)",
       "Bash(python -m pytest:*)",
       "Bash(test -f:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(source /Users/johan/src/Splunk-autodoc/.venv/bin/activate:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(docker build:*)",
+      "Bash(npm install:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker logs:*)",
+      "Bash(npm run build:*)",
+      "Bash(docker compose build:*)",
+      "Bash(docker compose:*)",
+      "Bash(kill:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

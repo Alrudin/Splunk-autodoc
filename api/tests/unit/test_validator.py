@@ -8,7 +8,7 @@ from app.models.finding import Finding
 from app.models.graph import Graph
 from app.services.validator import (
     collect_known_indexes,
-    # create_findings_in_db,
+    create_findings_in_db,
     detect_ambiguous_groups,
     detect_dangling_outputs,
     detect_drop_paths,
@@ -709,7 +709,7 @@ class TestCompleteValidation:
         from app.models.project import Project
         from app.models.upload import Upload
 
-        project = Project(name="Test Project", description="Test")
+        project = Project(name="Test Project", labels=["test"])
         test_db.add(project)
         test_db.commit()
         test_db.refresh(project)
@@ -749,23 +749,23 @@ class TestCompleteValidation:
         test_db.refresh(graph)
 
         # Create finding dicts
-        # finding_dicts = [
-        #     {
-        #         "code": "DANGLING_OUTPUT",
-        #         "severity": "error",
-        #         "message": "Test dangling output",
-        #         "context": {"src_host": "host1", "dst_host": "unknown"}
-        #     },
-        #     {
-        #         "code": "UNSECURED_PIPE",
-        #         "severity": "warning",
-        #         "message": "Test unsecured pipe",
-        #         "context": {"protocol": "splunktcp", "tls": False}
-        #     }
-        # ]
+        finding_dicts = [
+            {
+                "code": "DANGLING_OUTPUT",
+                "severity": "error",
+                "message": "Test dangling output",
+                "context": {"src_host": "host1", "dst_host": "unknown"}
+            },
+            {
+                "code": "UNSECURED_PIPE",
+                "severity": "warning",
+                "message": "Test unsecured pipe",
+                "context": {"protocol": "splunktcp", "tls": False}
+            }
+        ]
 
         # Call create_findings_in_db
-        # findings = create_findings_in_db(graph.id, finding_dicts, test_db)
+        findings = create_findings_in_db(graph.id, finding_dicts, test_db)
         test_db.commit()
 
         # Query findings from database

@@ -7,7 +7,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -34,7 +34,11 @@ from tests.fixtures.splunk_configs import (
 @pytest.fixture(scope="function")
 def test_db_engine():
     """Create in-memory SQLite engine for fast tests."""
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    engine = create_engine(
+        "sqlite:///:memory:",
+        echo=False,
+        connect_args={"check_same_thread": False},  # Allow TestClient to use connection across threads
+    )
     Base.metadata.create_all(engine)
     yield engine
     engine.dispose()
@@ -45,7 +49,16 @@ def test_db_session(test_db_engine) -> Generator[Session, None, None]:
     """Provide clean database session for each test with automatic rollback."""
     connection = test_db_engine.connect()
     transaction = connection.begin()
-    session = Session(bind=connection)
+    session = Session(bind=connection, expire_on_commit=False)
+
+    # Enable savepoints so that router commits don't conflict with test rollback
+    session.begin_nested()
+
+    # After each commit/rollback in the tested code, start a new savepoint
+    @event.listens_for(session, "after_transaction_end")
+    def restart_savepoint(session, transaction):
+        if transaction.nested and not transaction._parent.nested:
+            session.begin_nested()
 
     yield session
 

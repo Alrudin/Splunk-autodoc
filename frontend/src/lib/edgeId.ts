@@ -9,9 +9,9 @@ function hashString(str: string): string {
     character
   if (str.length === 0) return hash.toString()
   for (index = 0; index < str.length; index++) {
-    chr = str.charCodeAt(i)
+    character = str.charCodeAt(index)
     // (hash << 5) - hash is equivalent to hash * 31; this bit-shifting operation helps distribute bits and reduce collisions, similar to the djb2 hash algorithm
-    hash = (hash << 5) - hash + chr
+    hash = (hash << 5) - hash + character
     hash |= 0 // Convert to 32bit integer
   }
   return Math.abs(hash).toString()
